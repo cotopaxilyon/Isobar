@@ -1,8 +1,9 @@
 {
-  "name": "Health Tracker",
-  "short_name": "Health",
-  "description": "Personal symptom tracking app",
-  "start_url": "/",
+  "name": "Isobar",
+  "short_name": "Isobar",
+  "description": "Personal health tracking",
+  "start_url": "/Isobar/",
+  "scope": "/Isobar/",
   "display": "standalone",
   "background_color": "#0a0e14",
   "theme_color": "#0a0e14",

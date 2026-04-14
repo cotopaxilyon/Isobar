@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Health">
+<meta name="apple-mobile-web-app-title" content="Isobar">
 <meta name="theme-color" content="#0a0e14">
-<title>Health Tracker</title>
+<title>Isobar</title>
 <link rel="manifest" href="manifest.json">
 <style>
   /* fonts loaded locally */
@@ -68,7 +68,7 @@
     color: var(--text); font-size: 22px; font-weight: 600;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: all 0.1s;
-    -webkit-user-select: none;
+    -webkit-user-select: none; touch-action: manipulation;
   }
   .pin-key:active { background: var(--accent); color: #000; transform: scale(0.95); }
   .pin-key.empty { background: transparent; border-color: transparent; pointer-events: none; }
@@ -366,7 +366,7 @@
 <div id="pin-screen" style="display:none">
   <div style="text-align:center">
     <div style="font-size:32px;margin-bottom:8px">🔒</div>
-    <h1>Health Tracker</h1>
+    <h1>Isobar</h1>
     <p>Enter your PIN</p>
   </div>
   <div class="pin-dots" id="pin-dots">
@@ -386,7 +386,7 @@
   <div id="view-home" class="view active">
     <div class="page-header">
       <div>
-        <div class="page-subtitle">Health Tracker</div>
+        <div class="page-subtitle">Isobar</div>
         <div class="page-title">Cotopaxi</div>
       </div>
       <div id="pressure-summary" style="text-align:right"></div>
@@ -501,10 +501,10 @@
       </div>
       <div class="card" style="margin-top:8px">
         <div style="font-size:13px;color:var(--dim);line-height:1.7">
-          <strong style="color:var(--mid)">About</strong><br>
+          <strong style="color:var(--mid)">Isobar</strong><br>
           Data stored locally on this device only.<br>
           Never sent to any server.<br>
-          Version 1.0 · Built April 2026
+          Version 1.1 · Built April 2026
         </div>
       </div>
     </div>
@@ -678,7 +678,7 @@ async function fetchWeather() {
       navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000, enableHighAccuracy: false })
     );
     const { latitude: lat, longitude: lon } = pos.coords;
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=surface_pressure,temperature_2m,precipitation&current_weather=true&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=pressure_msl,temperature_2m,precipitation&current_weather=true&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
     const r = await fetch(url);
     const d = await r.json();
 
@@ -688,15 +688,18 @@ async function fetchWeather() {
     let minDiff = Infinity;
     hours.forEach((t, i) => { const diff = Math.abs(t - now); if (diff < minDiff) { minDiff = diff; idx = i; } });
 
-    const pressure = d.hourly.surface_pressure[idx];
-    const pressure6ago = d.hourly.surface_pressure[Math.max(0, idx - 6)];
+    const pressure = d.hourly.pressure_msl[idx];
+    const pressure6ago = d.hourly.pressure_msl[Math.max(0, idx - 6)];
     const trend = Math.round((pressure - pressure6ago) * 10) / 10;
     const temp = Math.round(d.hourly.temperature_2m[idx]);
+    const temp6ago = Math.round(d.hourly.temperature_2m[Math.max(0, idx - 6)]);
+    const tempTrend = temp - temp6ago;
     const precip = d.hourly.precipitation[idx];
 
     currentWeather = {
       pressure: Math.round(pressure * 10) / 10,
       trend, temp,
+      tempTrend,
       currentTemp: Math.round(d.current_weather.temperature),
       precip, lat: Math.round(lat * 100) / 100,
       lon: Math.round(lon * 100) / 100,
@@ -754,8 +757,10 @@ function renderWeather() {
       </div>
       <div class="weather-cell">
         <div class="weather-label">Temp</div>
-        <div class="weather-val">${w.currentTemp}°F</div>
-        <div class="weather-sub" style="color:var(--dim)">${w.precip > 0 ? w.precip + 'mm' : 'No precip'}</div>
+        <div class="weather-val" style="color:${Math.abs(w.tempTrend||0) >= 10 ? 'var(--warn)' : 'inherit'}">${w.currentTemp}°F</div>
+        <div class="weather-sub" style="color:${Math.abs(w.tempTrend||0) >= 10 ? 'var(--warn)' : 'var(--dim)'}">
+          ${w.tempTrend != null ? (w.tempTrend > 0 ? '+' : '') + w.tempTrend + '°F 6hr' : (w.precip > 0 ? w.precip + 'mm' : 'No precip')}
+        </div>
       </div>
     </div>
     <div class="weather-meta">
@@ -842,6 +847,7 @@ function startEpisode() {
   const now = new Date();
   epData = {
     type: 'episode', timestamp: now.toISOString(),
+    entryDate: now.toISOString().slice(0,10),
     prodromeTime: now.toTimeString().slice(0,5), firstJerkTime: '',
     prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
     chestTight: false, cane: false,
@@ -887,6 +893,10 @@ function renderEpStep() {
   switch(epStep) {
     case 0:
       html = `
+        <div class="section">
+          <span class="label">Date of episode</span>
+          <input type="date" value="${epData.entryDate}" oninput="epData.entryDate=this.value" style="width:100%">
+        </div>
         <div class="section">
           <span class="label">Prodrome started</span>
           <input type="time" value="${epData.prodromeTime}" oninput="epData.prodromeTime=this.value">
@@ -1019,7 +1029,15 @@ function renderEpStep() {
 }
 
 async function saveEpisode() {
-  const key = `entry:${Date.now()}`;
+  // Build timestamp from user-entered date + prodrome time
+  if (epData.entryDate) {
+    const timeStr = epData.prodromeTime || epData.firstJerkTime || new Date().toTimeString().slice(0,5);
+    const constructed = new Date(`${epData.entryDate}T${timeStr}`);
+    epData.timestamp = isNaN(constructed) ? epData.timestamp : constructed.toISOString();
+  }
+  // Prevent double-save
+  const key = `entry:${new Date(epData.timestamp).getTime()}`;
+  if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
   DB.set(key, epData);
   showToast('Episode saved ✓');
   goHome();
@@ -1040,8 +1058,10 @@ const CI_STEPS = [
 ];
 
 function startCheckin() {
+  const ciNow = new Date();
   ciData = {
-    type: 'checkin', timestamp: new Date().toISOString(),
+    type: 'checkin', timestamp: ciNow.toISOString(),
+    entryDate: ciNow.toISOString().slice(0,10),
     communicationLevel: null, externalObservation: null,
     bodyPain: [], sensations: {}, nap: null, napHours: '',
     workCapacity: null, cancelledPlans: null, heatTherapy: [],
@@ -1074,6 +1094,10 @@ function renderCiStep() {
   switch(ciStep) {
     case 0:
       html = `
+        <div class="section">
+          <span class="label">Date</span>
+          <input type="date" value="${ciData.entryDate}" oninput="ciData.entryDate=this.value" style="width:100%">
+        </div>
         <div class="comm-options">
           ${['normal','effortful','minimal','nonverbal'].map((v,i) => {
             const labels = ['Normal — talking easily','Possible but effortful','Mostly yes/no answers','Mostly non-verbal'];
@@ -1180,7 +1204,13 @@ function renderCiStep() {
 }
 
 function saveCheckin() {
-  const key = `entry:${Date.now()}`;
+  if (ciData.entryDate) {
+    const timeStr = new Date().toTimeString().slice(0,5);
+    const constructed = new Date(`${ciData.entryDate}T${timeStr}`);
+    ciData.timestamp = isNaN(constructed) ? ciData.timestamp : constructed.toISOString();
+  }
+  const key = `entry:${new Date(ciData.timestamp).getTime()}`;
+  if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
   DB.set(key, ciData);
   showToast('Check-in saved ✓');
   goHome();
@@ -1292,6 +1322,11 @@ function exportReport() {
     if (e.triggers?.length) r += `  Triggers: ${e.triggers.join(', ')}\n`;
     if (e.fastedHours) r += `  Hours fasted: ${e.fastedHours}\n`;
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
+    if (e.sensations && Object.keys(e.sensations).length) {
+      Object.entries(e.sensations).forEach(([region, descs]) => {
+        if (descs?.length) r += `  ${region.replace(/_/g,' ')}: ${descs.join(', ')}\n`;
+      });
+    }
     if (e.notes) r += `  Notes: ${e.notes}\n`;
   });
 
@@ -1314,7 +1349,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `health-report-${new Date().toISOString().slice(0,10)}.txt`;
+  a.download = `isobar-report-${new Date().toISOString().slice(0,10)}.txt`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Report downloaded ✓');
@@ -1503,7 +1538,11 @@ function initApp() {
   startMealTimer();
 }
 
-// Service Worker disabled for initial load
+// Unregister any stale service workers from previous versions
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(regs => regs.forEach(r => r.unregister()));
+}
 
 // Start
 initPIN();

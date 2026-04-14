@@ -1,5 +1,5 @@
-const CACHE = 'health-tracker-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json', '/icon.svg'];
+const CACHE = 'isobar-v1';
+const ASSETS = ['/Isobar/', '/Isobar/index.html', '/Isobar/manifest.json', '/Isobar/icon.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
