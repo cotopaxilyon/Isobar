@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Health">
+<meta name="theme-color" content="#0a0e14">
+<title>Health Tracker</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap');
+  :root {
+    --bg: #0a0e14;
+    --surface: #111827;
+    --surface2: #1a2332;
+    --border: #1e2d3d;
+    --accent: #38bdf8;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --good: #10b981;
+    --text: #e2e8f0;
+    --dim: #64748b;
+    --mid: #94a3b8;
+    --safe: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Sora', sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  #app {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(80px + var(--safe));
+  }
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* PIN SCREEN */
+  #pin-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000; gap: 32px;
+  }
+  #pin-screen h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  #pin-screen p { font-size: 14px; color: var(--dim); }
+  .pin-dots { display: flex; gap: 16px; }
+  .pin-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--border); transition: all 0.15s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-dot.error { background: var(--danger); border-color: var(--danger); }
+  .pin-keypad {
+    display: grid; grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+  }
+  .pin-key {
+    height: 72px; border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-size: 22px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; transition: all 0.1s;
+    -webkit-user-select: none;
+  }
+  .pin-key:active { background: var(--accent); color: #000; transform: scale(0.95); }
+  .pin-key.empty { background: transparent; border-color: transparent; pointer-events: none; }
+
+  /* SETUP PIN */
+  #setup-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000; gap: 24px; padding: 24px;
+  }
+
+  /* NAV BAR */
+  #nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe);
+    z-index: 100;
+  }
+  .nav-btn {
+    flex: 1; padding: 12px 4px 8px;
+    background: none; border: none; color: var(--dim);
+    font-size: 10px; font-family: 'Sora', sans-serif;
+    cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 4px; transition: color 0.15s;
+  }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn .icon { font-size: 20px; }
+
+  /* VIEWS */
+  .view { display: none; padding: 16px; animation: fadeIn 0.25s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .pulse { animation: pulse 2s infinite; }
+
+  /* HEADER */
+  .page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 16px 8px;
+  }
+  .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-subtitle { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+  }
+  .card.alert-card { border-color: var(--danger); }
+  .alert-banner {
+    background: rgba(239,68,68,0.1); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 12px;
+    font-size: 12px; font-weight: 600; color: var(--danger);
+  }
+
+  /* WEATHER */
+  .weather-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .weather-cell { text-align: center; }
+  .weather-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; }
+  .weather-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .weather-sub { font-size: 11px; margin-top: 2px; }
+  .weather-meta { font-size: 11px; color: var(--dim); margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+  .refresh-btn { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); text-align: center; gap: 8px; }
+  .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--dim); margin-top: 2px; }
+
+  /* BUTTONS */
+  .btn {
+    background: var(--accent); color: #000;
+    border: none; border-radius: 10px;
+    padding: 14px 24px; font-size: 15px; font-weight: 600;
+    font-family: 'Sora', sans-serif; cursor: pointer;
+    transition: opacity 0.15s; letter-spacing: 0.2px;
+    -webkit-user-select: none;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn.full { width: 100%; }
+  .btn.secondary { background: var(--surface2); color: var(--mid); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn.small { padding: 8px 16px; font-size: 13px; }
+
+  /* ACTION CARDS */
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .action-card {
+    border-radius: 12px; padding: 20px 14px;
+    cursor: pointer; border: 1px solid; text-align: left;
+    -webkit-user-select: none; transition: transform 0.1s;
+  }
+  .action-card:active { transform: scale(0.97); }
+  .action-card .icon { font-size: 26px; margin-bottom: 10px; display: block; }
+  .action-card .title { font-size: 15px; font-weight: 700; }
+  .action-card .sub { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+  /* LABEL */
+  .label {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    color: var(--dim); text-transform: uppercase; margin-bottom: 10px; display: block;
+  }
+
+  /* CHOICE CHIPS */
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .choice {
+    background: var(--surface2); color: var(--mid);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 14px; font-size: 13px; cursor: pointer;
+    font-family: 'Sora', sans-serif; transition: all 0.15s;
+    -webkit-user-select: none;
+  }
+  .choice.selected {
+    background: var(--accent); color: #000;
+    border-color: var(--accent); font-weight: 600;
+  }
+  .choice.sel-danger { background: rgba(239,68,68,0.15); color: var(--danger); border-color: var(--danger); font-weight: 600; }
+  .choice.sel-warn { background: rgba(245,158,11,0.15); color: var(--warn); border-color: var(--warn); font-weight: 600; }
+  .choice.sel-good { background: rgba(16,185,129,0.15); color: var(--good); border-color: var(--good); font-weight: 600; }
+
+  /* COMM BUTTONS */
+  .comm-options { display: flex; flex-direction: column; gap: 8px; }
+  .comm-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    font-size: 14px; cursor: pointer; text-align: left;
+    font-family: 'Sora', sans-serif; color: var(--mid);
+    transition: all 0.15s; -webkit-user-select: none;
+  }
+  .comm-btn:active { transform: scale(0.98); }
+
+  /* SEVERITY BUTTONS */
+  .sev-options { display: flex; flex-direction: column; gap: 8px; }
+  .sev-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    font-size: 14px; cursor: pointer; text-align: left;
+    font-family: 'Sora', sans-serif; color: var(--mid);
+    transition: all 0.15s; -webkit-user-select: none;
+  }
+
+  /* TOGGLE PAIR */
+  .toggle-pair { display: flex; gap: 8px; }
+  .toggle-btn {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; font-size: 14px;
+    cursor: pointer; font-family: 'Sora', sans-serif; color: var(--mid);
+    transition: all 0.15s; text-align: center; -webkit-user-select: none;
+  }
+  .toggle-btn.on { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .toggle-btn.on.warn { background: rgba(245,158,11,0.15); color: var(--warn); border-color: var(--warn); }
+
+  /* INPUT */
+  input[type=text], input[type=number], input[type=time], textarea {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+    color: var(--text); font-size: 15px; width: 100%;
+    font-family: 'Sora', sans-serif; outline: none;
+    -webkit-appearance: none;
+  }
+  input[type=number] { width: 100px; }
+  textarea { resize: vertical; line-height: 1.6; }
+  input:focus, textarea:focus { border-color: var(--accent); }
+
+  /* BODY MAP */
+  .body-map {
+    position: relative; height: 340px;
+    background: var(--surface2); border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .body-map-center {
+    position: absolute; left: 49%; top: 4%; width: 2px;
+    bottom: 4%; background: var(--border); opacity: 0.4;
+  }
+  .body-region {
+    position: absolute; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; font-size: 11px; cursor: pointer;
+    font-family: 'Sora', sans-serif; color: var(--mid);
+    transition: all 0.15s; transform: translateX(-50%);
+    white-space: nowrap; -webkit-user-select: none;
+  }
+  .body-region.active {
+    background: var(--accent); color: #000;
+    border-color: var(--accent); font-weight: 600;
+  }
+
+  /* STEP FORM */
+  .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .back-btn { background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; padding: 4px; }
+  .step-title { font-size: 18px; font-weight: 700; }
+  .step-sub { font-size: 13px; color: var(--dim); margin-top: 2px; }
+  .progress-bar { display: flex; gap: 4px; margin-bottom: 20px; }
+  .progress-seg { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+  .progress-seg.done { background: var(--accent); }
+  .step-content { min-height: 260px; }
+  .step-actions { display: flex; gap: 12px; margin-top: 20px; align-items: center; }
+
+  /* LOG ENTRIES */
+  .entry-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 10px;
+    border-left-width: 3px;
+  }
+  .entry-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .entry-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .entry-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); }
+  .entry-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .entry-chip { font-size: 11px; padding: 3px 7px; border-radius: 4px; background: var(--surface2); color: var(--mid); }
+  .entry-notes { font-size: 12px; color: var(--dim); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* SETTINGS */
+  .setting-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-label { font-size: 14px; }
+  .setting-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  /* SPINNER */
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: calc(90px + var(--safe)); left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--good); color: #000;
+    padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* SECTION SPACER */
+  .section { margin-bottom: 20px; }
+
+  /* RECENT EPISODE */
+  .recent-ep {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 8px;
+  }
+
+  /* MEAL CARD */
+  .meal-card {
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+    border: 1px solid; display: flex; align-items: center; gap: 14px;
+  }
+  .meal-card.ok { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.25); }
+  .meal-card.warn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.35); }
+  .meal-card.danger { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
+  .meal-card.compound { background: rgba(239,68,68,0.12); border-color: var(--danger); animation: pulse 2s infinite; }
+  .meal-icon { font-size: 26px; flex-shrink: 0; }
+  .meal-info { flex: 1; min-width: 0; }
+  .meal-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .meal-sub { font-size: 12px; color: var(--dim); line-height: 1.4; }
+  .meal-suggestion { font-size: 12px; margin-top: 6px; padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; line-height: 1.5; }
+  .meal-btn {
+    background: var(--good); color: #000; border: none; border-radius: 8px;
+    padding: 10px 14px; font-size: 13px; font-weight: 700;
+    font-family: 'Sora', sans-serif; cursor: pointer; flex-shrink: 0;
+    white-space: nowrap; -webkit-user-select: none;
+  }
+  .meal-btn:active { opacity: 0.8; }
+</style>
+</head>
+<body>
+
+<!-- PIN SETUP SCREEN -->
+<div id="setup-screen" style="display:none">
+  <div style="text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">🔒</div>
+    <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">Set Your PIN</h1>
+    <p style="font-size:14px;color:var(--dim)">Choose a 4-digit PIN to protect your health data</p>
+  </div>
+  <div class="pin-dots" id="setup-dots">
+    <div class="pin-dot" id="sd0"></div>
+    <div class="pin-dot" id="sd1"></div>
+    <div class="pin-dot" id="sd2"></div>
+    <div class="pin-dot" id="sd3"></div>
+  </div>
+  <div id="setup-prompt" style="font-size:13px;color:var(--dim)">Enter your new PIN</div>
+  <div class="pin-keypad" id="setup-keypad"></div>
+</div>
+
+<!-- PIN ENTRY SCREEN -->
+<div id="pin-screen" style="display:none">
+  <div style="text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">🔒</div>
+    <h1>Health Tracker</h1>
+    <p>Enter your PIN</p>
+  </div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div id="pin-error" style="font-size:13px;color:var(--danger);min-height:20px"></div>
+  <div class="pin-keypad" id="pin-keypad"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+
+  <!-- HOME VIEW -->
+  <div id="view-home" class="view active">
+    <div class="page-header">
+      <div>
+        <div class="page-subtitle">Health Tracker</div>
+        <div class="page-title">Cotopaxi</div>
+      </div>
+      <div id="pressure-summary" style="text-align:right"></div>
+    </div>
+
+    <div style="padding:0 16px">
+      <!-- Weather card -->
+      <div class="card" id="weather-card">
+        <div id="weather-loading" style="display:flex;align-items:center;gap:10px">
+          <div class="spinner"></div>
+          <span style="font-size:13px;color:var(--dim)">Getting location & weather…</span>
+        </div>
+        <div id="weather-content" style="display:none"></div>
+        <div id="weather-error" style="display:none">
+          <span style="font-size:13px;color:var(--warn)" id="weather-error-msg"></span>
+          <button class="btn small" onclick="fetchWeather()" style="margin-left:12px">Retry</button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-grid">
+        <div class="action-card" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3)" onclick="startEpisode()">
+          <span class="icon">⚡</span>
+          <div class="title" style="color:var(--danger)">Log Episode</div>
+          <div class="sub">During or after</div>
+        </div>
+        <div class="action-card" style="background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.3)" onclick="startCheckin()">
+          <span class="icon">📋</span>
+          <div class="title" style="color:var(--accent)">Daily Check-in</div>
+          <div class="sub">Pain & function</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card">
+        <div class="stats-grid">
+          <div><div class="stat-val" id="stat-episodes">0</div><div class="stat-label">Episodes</div></div>
+          <div><div class="stat-val" id="stat-checkins">0</div><div class="stat-label">Check-ins</div></div>
+          <div><div class="stat-val" id="stat-days">0</div><div class="stat-label">Days</div></div>
+        </div>
+      </div>
+
+      <!-- Meal tracking card -->
+      <div id="meal-card"></div>
+
+      <!-- Recent episodes -->
+      <div id="recent-section" style="display:none">
+        <span class="label">Recent Episodes</span>
+        <div id="recent-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EPISODE FORM VIEW -->
+  <div id="view-episode" class="view">
+    <div style="padding:0 16px">
+      <div class="step-header">
+        <button class="back-btn" onclick="goHome()">←</button>
+        <div>
+          <div class="step-title" id="ep-title"></div>
+          <div class="step-sub" id="ep-sub"></div>
+        </div>
+      </div>
+      <div class="progress-bar" id="ep-progress"></div>
+      <div class="step-content" id="ep-content"></div>
+      <div class="step-actions" id="ep-actions"></div>
+    </div>
+  </div>
+
+  <!-- CHECKIN FORM VIEW -->
+  <div id="view-checkin" class="view">
+    <div style="padding:0 16px">
+      <div class="step-header">
+        <button class="back-btn" onclick="goHome()">←</button>
+        <div>
+          <div class="step-title" id="ci-title"></div>
+          <div class="step-sub" id="ci-sub"></div>
+        </div>
+      </div>
+      <div class="progress-bar" id="ci-progress"></div>
+      <div class="step-content" id="ci-content"></div>
+      <div class="step-actions" id="ci-actions"></div>
+    </div>
+  </div>
+
+  <!-- LOG VIEW -->
+  <div id="view-log" class="view">
+    <div class="page-header">
+      <div class="page-title">Log</div>
+      <button class="btn small" onclick="exportReport()">Export</button>
+    </div>
+    <div style="padding:0 16px" id="log-list"></div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div id="view-settings" class="view">
+    <div class="page-header"><div class="page-title">Settings</div></div>
+    <div style="padding:0 16px">
+      <div class="card">
+        <div class="setting-row">
+          <div><div class="setting-label">Change PIN</div><div class="setting-sub">Update your 4-digit PIN</div></div>
+          <button class="btn small secondary" onclick="changePIN()">Change</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Export Data</div><div class="setting-sub">Download your full history</div></div>
+          <button class="btn small" onclick="exportReport()">Export</button>
+        </div>
+        <div class="setting-row" style="border:none">
+          <div><div class="setting-label" style="color:var(--danger)">Clear All Data</div><div class="setting-sub">Permanently delete all entries</div></div>
+          <button class="btn small danger" onclick="clearData()">Clear</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:8px">
+        <div style="font-size:13px;color:var(--dim);line-height:1.7">
+          <strong style="color:var(--mid)">About</strong><br>
+          Data stored locally on this device only.<br>
+          Never sent to any server.<br>
+          Version 1.0 · Built April 2026
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- NAV BAR -->
+<nav id="nav" style="display:none">
+  <button class="nav-btn active" id="nav-home" onclick="switchView('home')">
+    <span class="icon">⌂</span>Home
+  </button>
+  <button class="nav-btn" id="nav-log" onclick="switchView('log')">
+    <span class="icon">☰</span>Log
+  </button>
+  <button class="nav-btn" id="nav-settings" onclick="switchView('settings')">
+    <span class="icon">⚙</span>Settings
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+// ── STORAGE ──────────────────────────────────────────────────
+const DB = {
+  get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  remove: k => localStorage.removeItem(k),
+  keys: prefix => Object.keys(localStorage).filter(k => k.startsWith(prefix)),
+  allEntries: () => {
+    const keys = DB.keys('entry:');
+    return keys.map(k => DB.get(k)).filter(Boolean)
+      .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }
+};
+
+// ── PIN SYSTEM ───────────────────────────────────────────────
+let pinBuffer = [];
+let setupMode = false;
+let setupFirst = null;
+let isUnlocked = false;
+
+function buildKeypad(containerId, onDigit, onDelete) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'pin-key';
+    if (k === '') { btn.className += ' empty'; }
+    btn.textContent = k;
+    if (k !== '') {
+      btn.addEventListener('click', () => {
+        if (k === '⌫') onDelete();
+        else onDigit(String(k));
+      });
+    }
+    el.appendChild(btn);
+  });
+}
+
+function updateDots(prefix, count, error) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById(`${prefix}${i}`);
+    d.className = 'pin-dot';
+    if (error) d.classList.add('error');
+    else if (i < count) d.classList.add('filled');
+  }
+}
+
+function initPIN() {
+  const stored = DB.get('pin');
+  if (!stored) {
+    showSetup();
+  } else {
+    showPINEntry();
+  }
+}
+
+function showSetup() {
+  setupMode = true; setupFirst = null; pinBuffer = [];
+  document.getElementById('setup-screen').style.display = 'flex';
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('setup-prompt').textContent = 'Enter your new PIN';
+  updateDots('sd', 0, false);
+  buildKeypad('setup-keypad', setupDigit, setupDelete);
+}
+
+function setupDigit(d) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer.push(d);
+  updateDots('sd', pinBuffer.length, false);
+  if (pinBuffer.length === 4) {
+    if (!setupFirst) {
+      setupFirst = pinBuffer.join('');
+      pinBuffer = [];
+      document.getElementById('setup-prompt').textContent = 'Confirm your PIN';
+      updateDots('sd', 0, false);
+    } else {
+      const entered = pinBuffer.join('');
+      if (entered === setupFirst) {
+        DB.set('pin', setupFirst);
+        unlock();
+      } else {
+        updateDots('sd', 4, true);
+        document.getElementById('setup-prompt').textContent = "PINs don't match — try again";
+        setTimeout(() => { setupFirst = null; pinBuffer = []; updateDots('sd', 0, false); document.getElementById('setup-prompt').textContent = 'Enter your new PIN'; }, 1000);
+      }
+    }
+  }
+}
+function setupDelete() { pinBuffer.pop(); updateDots('sd', pinBuffer.length, false); }
+
+function showPINEntry() {
+  pinBuffer = [];
+  document.getElementById('pin-screen').style.display = 'flex';
+  document.getElementById('setup-screen').style.display = 'none';
+  updateDots('pd', 0, false);
+  document.getElementById('pin-error').textContent = '';
+  buildKeypad('pin-keypad', pinDigit, pinDelete);
+}
+
+function pinDigit(d) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer.push(d);
+  updateDots('pd', pinBuffer.length, false);
+  if (pinBuffer.length === 4) {
+    const entered = pinBuffer.join('');
+    const stored = DB.get('pin');
+    if (entered === stored) {
+      unlock();
+    } else {
+      updateDots('pd', 4, true);
+      document.getElementById('pin-error').textContent = 'Incorrect PIN';
+      const keypad = document.getElementById('pin-keypad');
+      keypad.style.animation = 'shake 0.3s ease';
+      setTimeout(() => { keypad.style.animation = ''; pinBuffer = []; updateDots('pd', 0, false); document.getElementById('pin-error').textContent = ''; }, 700);
+    }
+  }
+}
+function pinDelete() { pinBuffer.pop(); updateDots('pd', pinBuffer.length, false); }
+
+function unlock() {
+  isUnlocked = true;
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('nav').style.display = 'flex';
+  initApp();
+}
+
+function changePIN() {
+  isUnlocked = false;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('nav').style.display = 'none';
+  DB.remove('pin');
+  showSetup();
+}
+
+// ── WEATHER ──────────────────────────────────────────────────
+let currentWeather = null;
+
+async function fetchWeather() {
+  const card = document.getElementById('weather-card');
+  document.getElementById('weather-loading').style.display = 'flex';
+  document.getElementById('weather-content').style.display = 'none';
+  document.getElementById('weather-error').style.display = 'none';
+  card.classList.remove('alert-card');
+
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000, enableHighAccuracy: false })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=surface_pressure,temperature_2m,precipitation&current_weather=true&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const r = await fetch(url);
+    const d = await r.json();
+
+    const now = new Date();
+    const hours = d.hourly.time.map(t => new Date(t));
+    let idx = 0;
+    let minDiff = Infinity;
+    hours.forEach((t, i) => { const diff = Math.abs(t - now); if (diff < minDiff) { minDiff = diff; idx = i; } });
+
+    const pressure = d.hourly.surface_pressure[idx];
+    const pressure6ago = d.hourly.surface_pressure[Math.max(0, idx - 6)];
+    const trend = Math.round((pressure - pressure6ago) * 10) / 10;
+    const temp = Math.round(d.hourly.temperature_2m[idx]);
+    const precip = d.hourly.precipitation[idx];
+
+    currentWeather = {
+      pressure: Math.round(pressure * 10) / 10,
+      trend, temp,
+      currentTemp: Math.round(d.current_weather.temperature),
+      precip, lat: Math.round(lat * 100) / 100,
+      lon: Math.round(lon * 100) / 100,
+      fetchedAt: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: now.toISOString()
+    };
+
+    renderWeather();
+  } catch (e) {
+    document.getElementById('weather-loading').style.display = 'none';
+    document.getElementById('weather-error').style.display = 'flex';
+    document.getElementById('weather-error-msg').textContent =
+      e.code === 1 ? 'Location denied — enable in Settings → Safari → Location' : 'Weather unavailable';
+  }
+}
+
+function pressureStatus(hpa, trend) {
+  if (trend < -3) return { label: 'Rapid Drop ⚠', color: 'var(--danger)', icon: '↓↓' };
+  if (trend < -1.5) return { label: 'Falling', color: 'var(--warn)', icon: '↓' };
+  if (hpa < 980) return { label: 'Very Low', color: 'var(--warn)', icon: '▼' };
+  if (hpa < 1000) return { label: 'Low', color: 'var(--mid)', icon: '▽' };
+  return { label: 'Normal', color: 'var(--good)', icon: '—' };
+}
+
+function renderWeather() {
+  const w = currentWeather;
+  if (!w) return;
+  const st = pressureStatus(w.pressure, w.trend);
+  const isAlert = w.trend < -3;
+  const card = document.getElementById('weather-card');
+  if (isAlert) card.classList.add('alert-card');
+
+  // Update header pressure
+  document.getElementById('pressure-summary').innerHTML =
+    `<div class="mono" style="font-size:18px;font-weight:600;color:${st.color}">${w.pressure} hPa</div>
+     <div style="font-size:11px;color:${st.color}">${st.icon} ${st.label}</div>`;
+
+  document.getElementById('weather-loading').style.display = 'none';
+  document.getElementById('weather-error').style.display = 'none';
+  const content = document.getElementById('weather-content');
+  content.style.display = 'block';
+  renderMealCard(); // Re-evaluate compound risk with new pressure data
+  content.innerHTML = `
+    ${isAlert ? `<div class="alert-banner pulse">⚠ RAPID PRESSURE DROP — Episode risk elevated. Consider preemptive heat therapy.</div>` : ''}
+    <div class="weather-grid">
+      <div class="weather-cell">
+        <div class="weather-label">Pressure</div>
+        <div class="weather-val" style="color:${st.color}">${w.pressure} <span style="font-size:12px">hPa</span></div>
+        <div class="weather-sub" style="color:${st.color}">${st.icon} ${st.label}</div>
+      </div>
+      <div class="weather-cell">
+        <div class="weather-label">6hr Trend</div>
+        <div class="weather-val" style="color:${w.trend < -3 ? 'var(--danger)' : w.trend < 0 ? 'var(--warn)' : 'var(--good)'}">${w.trend > 0 ? '+' : ''}${w.trend}</div>
+        <div class="weather-sub" style="color:var(--dim)">hPa change</div>
+      </div>
+      <div class="weather-cell">
+        <div class="weather-label">Temp</div>
+        <div class="weather-val">${w.currentTemp}°F</div>
+        <div class="weather-sub" style="color:var(--dim)">${w.precip > 0 ? w.precip + 'mm' : 'No precip'}</div>
+      </div>
+    </div>
+    <div class="weather-meta">
+      📍 ${w.lat}, ${w.lon} · ${w.fetchedAt}
+      <button class="refresh-btn" onclick="fetchWeather()">↻ Refresh</button>
+    </div>
+  `;
+}
+
+// ── FORM HELPERS ─────────────────────────────────────────────
+function choices(opts, selected, onToggle, multi) {
+  return opts.map(opt => {
+    const val = typeof opt === 'string' ? opt : opt.value;
+    const label = typeof opt === 'string' ? opt : opt.label;
+    const isSelected = multi ? (selected || []).includes(val) : selected === val;
+    return `<button class="choice ${isSelected ? 'selected' : ''}"
+      onclick="(function(){${multi
+        ? `const cur = window._fd['${val}'] !== undefined ? window._fd['${val}'] : true; window._formToggle('${val}', !cur);`
+        : `window._formSet('${val}');`}
+      })()">${label}</button>`;
+  }).join('');
+}
+
+function commBtn(value, label, color, selected) {
+  const sel = selected === value;
+  return `<button class="comm-btn" style="${sel ? `background:${color}20;color:${color};border-color:${color};font-weight:600` : ''}"
+    onclick="window._formSet('${value}')">${label}</button>`;
+}
+
+function sevBtn(value, label, color, selected) {
+  const sel = selected === value;
+  return `<button class="sev-btn" style="${sel ? `background:${color}20;color:${color};border-color:${color};font-weight:600` : ''}"
+    onclick="window._formSet('${value}')">${label}</button>`;
+}
+
+function toggleBtn(key, label, val, isOn, warnColor) {
+  return `<button class="toggle-btn ${isOn ? (warnColor ? 'on warn' : 'on') : ''}"
+    onclick="window._formToggleKey('${key}')">${label}</button>`;
+}
+
+function bodyMap(selected) {
+  const regions = [
+    {id:'head',label:'Head/Face',top:2,left:49},
+    {id:'neck',label:'Neck',top:13,left:49},
+    {id:'chest',label:'Chest',top:25,left:28},
+    {id:'upper_back',label:'Upper Back',top:25,left:70},
+    {id:'abdomen',label:'Abdomen',top:38,left:28},
+    {id:'lower_back',label:'Lower Back',top:38,left:70},
+    {id:'right_arm',label:'R. Arm',top:31,left:12},
+    {id:'left_arm',label:'L. Arm',top:31,left:86},
+    {id:'right_hip',label:'R. Hip',top:51,left:28},
+    {id:'left_hip',label:'L. Hip',top:51,left:70},
+    {id:'right_leg',label:'R. Leg',top:65,left:28},
+    {id:'left_leg',label:'L. Leg',top:65,left:70},
+    {id:'right_foot',label:'R. Foot',top:83,left:28},
+    {id:'left_foot',label:'L. Foot',top:83,left:70},
+  ];
+  const btns = regions.map(r => {
+    const active = (selected || []).includes(r.id);
+    return `<button class="body-region ${active ? 'active' : ''}"
+      style="top:${r.top}%;left:${r.left}%"
+      onclick="window._bodyToggle('${r.id}')">${r.label}</button>`;
+  }).join('');
+  return `<div class="body-map"><div class="body-map-center"></div>${btns}</div>`;
+}
+
+// ── EPISODE FORM ──────────────────────────────────────────────
+let epData = {};
+let epStep = 0;
+
+const EP_STEPS = [
+  { title: 'Episode Timing', sub: '' },
+  { title: 'Prodrome', sub: 'What came before' },
+  { title: 'Episode Pattern', sub: 'Limbs & sensations' },
+  { title: 'How Are You Communicating?', sub: 'Primary severity indicator' },
+  { title: 'Triggers', sub: '' },
+  { title: 'Pain Location', sub: 'Tap all areas that hurt' },
+  { title: 'Sensations', sub: 'What does pain feel like' },
+  { title: 'Overall Severity', sub: 'Compared to Arizona' },
+  { title: 'Notes', sub: '' },
+];
+
+function startEpisode() {
+  const now = new Date();
+  epData = {
+    type: 'episode', timestamp: now.toISOString(),
+    prodromeTime: now.toTimeString().slice(0,5), firstJerkTime: '',
+    prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
+    chestTight: false, cane: false,
+    communicationLevel: null, externalObservation: null,
+    triggers: [], fastedHours: '', notes: '',
+    weather: currentWeather || null, severity: null,
+  };
+  epStep = 0;
+  switchView('episode');
+  renderEpStep();
+}
+
+function renderEpStep() {
+  const s = EP_STEPS[epStep];
+  document.getElementById('ep-title').textContent = s.title;
+  document.getElementById('ep-sub').textContent = s.sub;
+
+  // Progress
+  const prog = document.getElementById('ep-progress');
+  prog.innerHTML = EP_STEPS.map((_, i) =>
+    `<div class="progress-seg ${i <= epStep ? 'done' : ''}"></div>`
+  ).join('');
+
+  // Set up window helpers
+  window._formSet = v => { epData._lastSet = v; renderEpStep(); };
+  window._formToggle = (v, on) => {
+    if (!epData._lastArr) return;
+    const arr = epData[epData._lastArr] || [];
+    if (on) { if (!arr.includes(v)) arr.push(v); }
+    else { const i = arr.indexOf(v); if (i > -1) arr.splice(i,1); }
+    epData[epData._lastArr] = arr;
+    renderEpStep();
+  };
+  window._formToggleKey = k => { epData[k] = !epData[k]; renderEpStep(); };
+  window._bodyToggle = id => {
+    const arr = epData.bodyPain || [];
+    const i = arr.indexOf(id);
+    if (i > -1) arr.splice(i,1); else arr.push(id);
+    epData.bodyPain = arr; renderEpStep();
+  };
+
+  let html = '';
+  switch(epStep) {
+    case 0:
+      html = `
+        <div class="section">
+          <span class="label">Prodrome started</span>
+          <input type="time" value="${epData.prodromeTime}" oninput="epData.prodromeTime=this.value">
+        </div>
+        <div class="section">
+          <span class="label">First jerk / kick (time)</span>
+          <input type="time" value="${epData.firstJerkTime}" oninput="epData.firstJerkTime=this.value">
+        </div>`;
+      break;
+    case 1:
+      epData._lastArr = 'prodrome';
+      const prodOpts = [
+        {value:'fatigue',label:'Crushing fatigue'},
+        {value:'altered',label:"Feeling 'high' / altered"},
+        {value:'blurry',label:'Blurry vision'},
+        {value:'back_pressure',label:'Lower back pressure'},
+        {value:'right_leg_energy',label:'Energy in right leg'},
+        {value:'left_leg_energy',label:'Energy in left leg'},
+        {value:'left_face',label:'Left face tingling'},
+        {value:'right_face',label:'Right face tingling'},
+        {value:'throat',label:'Throat tightening'},
+      ];
+      html = `<div class="choices">${choices(prodOpts, epData.prodrome, null, true)}</div>`;
+      break;
+    case 2:
+      epData._lastArr = 'limbsAffected';
+      const limbOpts = [
+        {value:'right_leg',label:'Right leg'},
+        {value:'left_leg',label:'Left leg'},
+        {value:'bilateral_legs',label:'Both legs'},
+        {value:'right_arm',label:'Right arm'},
+        {value:'left_arm',label:'Left arm'},
+        {value:'sleep_continue',label:'Continues in sleep'},
+      ];
+      html = `
+        <div class="section">
+          <span class="label">Limbs affected</span>
+          <div class="choices">${choices(limbOpts, epData.limbsAffected, null, true)}</div>
+        </div>
+        <div class="toggle-pair" style="margin-top:12px">
+          ${toggleBtn('chestTight','Chest squeezed',true,epData.chestTight,true)}
+          ${toggleBtn('cane','Need cane after',true,epData.cane,true)}
+        </div>`;
+      break;
+    case 3:
+      html = `
+        <div class="comm-options">
+          ${commBtn('normal','Normal — full sentences, back and forth','var(--good)',epData.communicationLevel)}
+          ${commBtn('effortful','Possible but effortful — slower, shorter','var(--warn)',epData.communicationLevel)}
+          ${commBtn('minimal','Mostly yes/no answers only','#f97316',epData.communicationLevel)}
+          ${commBtn('nonverbal','Mostly non-verbal right now','var(--danger)',epData.communicationLevel)}
+        </div>
+        <div class="section" style="margin-top:16px">
+          <span class="label">Has anyone noticed you seem quiet or flat?</span>
+          <div class="toggle-pair">
+            ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${epData.externalObservation===o?'on':''}" onclick="epData.externalObservation='${o}';renderEpStep()">${o}</button>`).join('')}
+          </div>
+        </div>`;
+      // Override _formSet for comm buttons
+      window._formSet = v => { epData.communicationLevel = v; renderEpStep(); };
+      break;
+    case 4:
+      epData._lastArr = 'triggers';
+      const trigOpts = [
+        {value:'weather',label:'Weather / travel'},
+        {value:'fasting',label:'Fasting'},
+        {value:'animal',label:'Animal exposure'},
+        {value:'chemical',label:'Chemical / perfume'},
+        {value:'new_env',label:'New environment'},
+        {value:'poor_sleep',label:'Poor sleep'},
+        {value:'stress',label:'High stress'},
+        {value:'exertion',label:'Physical exertion'},
+        {value:'hormonal',label:'Hormonal / cycle'},
+        {value:'mold',label:'Mold / musty space'},
+      ];
+      html = `
+        <div class="section">
+          <div class="choices">${choices(trigOpts, epData.triggers, null, true)}</div>
+        </div>
+        <div class="section">
+          <span class="label">Hours since last meal</span>
+          <input type="number" placeholder="e.g. 7" value="${epData.fastedHours}" oninput="epData.fastedHours=this.value" style="width:100px">
+        </div>`;
+      break;
+    case 5:
+      html = bodyMap(epData.bodyPain);
+      break;
+    case 6:
+      const sensOpts = ['Tight','Aching','Burning','Pressure','Stabbing','Numb','Cramping','Squeezing'];
+      if (!epData.bodyPain.length) {
+        html = `<p style="color:var(--dim);font-size:14px">No pain locations selected — go back or skip.</p>`;
+      } else {
+        html = epData.bodyPain.map(region => {
+          const key = `sens_${region}`;
+          if (!epData.sensations[region]) epData.sensations[region] = [];
+          return `<div class="section">
+            <span class="label">${region.replace(/_/g,' ')}</span>
+            <div class="choices">${sensOpts.map(s => {
+              const sel = epData.sensations[region].includes(s);
+              return `<button class="choice ${sel?'selected':''}" onclick="(function(){const a=epData.sensations['${region}'];const i=a.indexOf('${s}');if(i>-1)a.splice(i,1);else a.push('${s}');renderEpStep()})()">${s}</button>`;
+            }).join('')}</div>
+          </div>`;
+        }).join('');
+      }
+      break;
+    case 7:
+      html = `<div class="sev-options">
+        ${sevBtn('similar','Similar — Arizona feels close','var(--good)',epData.severity)}
+        ${sevBtn('somewhat','Somewhat worse than Arizona','var(--accent)',epData.severity)}
+        ${sevBtn('much_worse','Much worse than Arizona','var(--warn)',epData.severity)}
+        ${sevBtn('far_away','Arizona feels very far away right now','var(--danger)',epData.severity)}
+      </div>`;
+      window._formSet = v => { epData.severity = v; renderEpStep(); };
+      break;
+    case 8:
+      html = `<textarea placeholder="Anything else about this episode…" rows="6" oninput="epData.notes=this.value">${epData.notes}</textarea>`;
+      break;
+  }
+
+  document.getElementById('ep-content').innerHTML = html;
+
+  // Actions
+  const isLast = epStep === EP_STEPS.length - 1;
+  document.getElementById('ep-actions').innerHTML = `
+    ${epStep > 0 ? `<button class="btn secondary small" onclick="epStep--;renderEpStep()">Back</button>` : ''}
+    <div style="flex:1"></div>
+    <button class="btn${isLast?' ':' '}" onclick="${isLast ? 'saveEpisode()' : 'epStep++;renderEpStep()'}">
+      ${isLast ? 'Save Episode' : 'Next →'}
+    </button>`;
+}
+
+async function saveEpisode() {
+  const key = `entry:${Date.now()}`;
+  DB.set(key, epData);
+  showToast('Episode saved ✓');
+  goHome();
+  updateStats();
+}
+
+// ── CHECKIN FORM ──────────────────────────────────────────────
+let ciData = {};
+let ciStep = 0;
+
+const CI_STEPS = [
+  { title: 'How Are You Communicating?', sub: 'Right now' },
+  { title: 'Pain Location', sub: 'Tap anywhere that hurts' },
+  { title: 'Exhaustion & Function', sub: '' },
+  { title: 'Sleep & Hormones', sub: '' },
+  { title: 'Today vs Arizona', sub: '' },
+  { title: 'Notes', sub: '' },
+];
+
+function startCheckin() {
+  ciData = {
+    type: 'checkin', timestamp: new Date().toISOString(),
+    communicationLevel: null, externalObservation: null,
+    bodyPain: [], sensations: {}, nap: null, napHours: '',
+    workCapacity: null, cancelledPlans: null, heatTherapy: [],
+    sleep: null, hormonalSymptoms: null, episodesSinceLast: '',
+    notes: '', weather: currentWeather || null, severity: null,
+  };
+  ciStep = 0;
+  switchView('checkin');
+  renderCiStep();
+}
+
+function renderCiStep() {
+  const s = CI_STEPS[ciStep];
+  document.getElementById('ci-title').textContent = s.title;
+  document.getElementById('ci-sub').textContent = s.sub;
+
+  const prog = document.getElementById('ci-progress');
+  prog.innerHTML = CI_STEPS.map((_, i) =>
+    `<div class="progress-seg ${i <= ciStep ? 'done' : ''}"></div>`
+  ).join('');
+
+  window._bodyToggle = id => {
+    const arr = ciData.bodyPain || [];
+    const i = arr.indexOf(id);
+    if (i > -1) arr.splice(i,1); else arr.push(id);
+    ciData.bodyPain = arr; renderCiStep();
+  };
+
+  let html = '';
+  switch(ciStep) {
+    case 0:
+      html = `
+        <div class="comm-options">
+          ${['normal','effortful','minimal','nonverbal'].map((v,i) => {
+            const labels = ['Normal — talking easily','Possible but effortful','Mostly yes/no answers','Mostly non-verbal'];
+            const colors = ['var(--good)','var(--warn)','#f97316','var(--danger)'];
+            const sel = ciData.communicationLevel === v;
+            return `<button class="comm-btn" style="${sel?`background:${colors[i]}20;color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+              onclick="ciData.communicationLevel='${v}';renderCiStep()">${labels[i]}</button>`;
+          }).join('')}
+        </div>
+        <div class="section" style="margin-top:16px">
+          <span class="label">Has anyone noticed you seem quiet or flat?</span>
+          <div class="toggle-pair">
+            ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${ciData.externalObservation===o?'on':''}" onclick="ciData.externalObservation='${o}';renderCiStep()">${o}</button>`).join('')}
+          </div>
+        </div>`;
+      break;
+    case 1:
+      html = bodyMap(ciData.bodyPain);
+      break;
+    case 2:
+      html = `
+        <div class="section">
+          <span class="label">Did you nap today?</span>
+          <div class="toggle-pair">
+            ${['Yes','No'].map(o=>`<button class="toggle-btn ${ciData.nap===o?'on':''}" onclick="ciData.nap='${o}';renderCiStep()">${o}</button>`).join('')}
+          </div>
+          ${ciData.nap==='Yes' ? `<input type="number" placeholder="How many hours?" value="${ciData.napHours}" oninput="ciData.napHours=this.value" style="margin-top:8px;width:100%">` : ''}
+        </div>
+        <div class="section">
+          <span class="label">Work capacity today</span>
+          <div class="choices">
+            ${[{value:'full',label:'Full'},{value:'reduced',label:'Reduced'},{value:'minimal',label:'Minimal'},{value:'none',label:'Unable'}].map(o=>{
+              const sel = ciData.workCapacity===o.value;
+              return `<button class="choice ${sel?'selected':''}" onclick="ciData.workCapacity='${o.value}';renderCiStep()">${o.label}</button>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="section">
+          <span class="label">Cancelled plans?</span>
+          <div class="toggle-pair">
+            ${['Yes','No'].map(o=>`<button class="toggle-btn ${ciData.cancelledPlans===o?'on warn':''}" onclick="ciData.cancelledPlans='${o}';renderCiStep()">${o}</button>`).join('')}
+          </div>
+        </div>
+        <div class="section">
+          <span class="label">Heat therapy used</span>
+          <div class="choices">
+            ${[{value:'bath',label:'Hot bath'},{value:'sauna',label:'Sauna'},{value:'pad',label:'Heating pad'},{value:'shower',label:'Hot shower'}].map(o=>{
+              const sel = (ciData.heatTherapy||[]).includes(o.value);
+              return `<button class="choice ${sel?'selected':''}" onclick="(function(){const a=ciData.heatTherapy||[];const i=a.indexOf('${o.value}');if(i>-1)a.splice(i,1);else a.push('${o.value}');ciData.heatTherapy=a;renderCiStep()})()">${o.label}</button>`;
+            }).join('')}
+          </div>
+        </div>`;
+      break;
+    case 3:
+      html = `
+        <div class="section">
+          <span class="label">Sleep quality last night</span>
+          <div class="choices">
+            ${[{value:'good',label:'Restorative'},{value:'ok',label:'Somewhat'},{value:'poor',label:'Poor'},{value:'rls',label:'RLS bad'}].map(o=>{
+              const sel = ciData.sleep===o.value;
+              return `<button class="choice ${sel?'selected':''}" onclick="ciData.sleep='${o.value}';renderCiStep()">${o.label}</button>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="section">
+          <span class="label">Perimenopausal symptoms?</span>
+          <div class="toggle-pair">
+            ${['Yes','No','Mild'].map(o=>`<button class="toggle-btn ${ciData.hormonalSymptoms===o?'on':''}" onclick="ciData.hormonalSymptoms='${o}';renderCiStep()">${o}</button>`).join('')}
+          </div>
+        </div>
+        <div class="section">
+          <span class="label">Episodes since last check-in</span>
+          <input type="number" placeholder="0" value="${ciData.episodesSinceLast}" oninput="ciData.episodesSinceLast=this.value" style="width:100px">
+        </div>`;
+      break;
+    case 4:
+      html = `<div class="sev-options">
+        ${[
+          {v:'similar',l:'Similar — feeling good',c:'var(--good)'},
+          {v:'somewhat',l:'Somewhat worse than baseline',c:'var(--accent)'},
+          {v:'much_worse',l:'Much worse',c:'var(--warn)'},
+          {v:'far_away',l:'Arizona feels very far away',c:'var(--danger)'},
+        ].map(o=>{
+          const sel = ciData.severity===o.v;
+          return `<button class="sev-btn" style="${sel?`background:${o.c}20;color:${o.c};border-color:${o.c};font-weight:600`:''}"
+            onclick="ciData.severity='${o.v}';renderCiStep()">${o.l}</button>`;
+        }).join('')}
+      </div>`;
+      break;
+    case 5:
+      html = `<textarea placeholder="Anything to note today…" rows="6" oninput="ciData.notes=this.value">${ciData.notes}</textarea>`;
+      break;
+  }
+
+  document.getElementById('ci-content').innerHTML = html;
+
+  const isLast = ciStep === CI_STEPS.length - 1;
+  document.getElementById('ci-actions').innerHTML = `
+    ${ciStep > 0 ? `<button class="btn secondary small" onclick="ciStep--;renderCiStep()">Back</button>` : ''}
+    <div style="flex:1"></div>
+    <button class="btn" onclick="${isLast ? 'saveCheckin()' : 'ciStep++;renderCiStep()'}">
+      ${isLast ? 'Save Check-in' : 'Next →'}
+    </button>`;
+}
+
+function saveCheckin() {
+  const key = `entry:${Date.now()}`;
+  DB.set(key, ciData);
+  showToast('Check-in saved ✓');
+  goHome();
+  updateStats();
+}
+
+// ── LOG VIEW ──────────────────────────────────────────────────
+function renderLog() {
+  const entries = DB.allEntries();
+  const el = document.getElementById('log-list');
+  if (!entries.length) {
+    el.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--dim)">
+      <div style="font-size:32px;margin-bottom:12px">○</div>
+      No entries yet
+    </div>`;
+    return;
+  }
+  const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
+  const commColors = { normal:'var(--good)', effortful:'var(--warn)', minimal:'#f97316', nonverbal:'var(--danger)' };
+  el.innerHTML = entries.map(e => {
+    const d = new Date(e.timestamp);
+    const isEp = e.type === 'episode';
+    const borderColor = sevColors[e.severity] || (isEp ? 'var(--danger)' : 'var(--accent)');
+    const chips = [
+      e.communicationLevel ? `<span class="entry-chip" style="color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : '',
+      ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
+      ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
+      e.weather?.pressure ? `<span class="entry-chip mono">${e.weather.pressure}hPa (${e.weather.trend>0?'+':''}${e.weather.trend})</span>` : '',
+    ].filter(Boolean).join('');
+    return `<div class="entry-card" style="border-left-color:${borderColor}">
+      <div class="entry-header">
+        <div>
+          <div class="entry-type" style="color:${isEp?'var(--danger)':'var(--accent)'}">${isEp?'Episode':'Check-in'}</div>
+          <div class="entry-time">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        ${e.severity ? `<span style="font-size:12px;color:${sevColors[e.severity]||'var(--mid)'};font-weight:600">${e.severity.replace(/_/g,' ')}</span>` : ''}
+      </div>
+      <div class="entry-chips">${chips}</div>
+      ${e.notes ? `<div class="entry-notes">${e.notes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function updateStats() {
+  const entries = DB.allEntries();
+  const eps = entries.filter(e => e.type === 'episode');
+  const cis = entries.filter(e => e.type === 'checkin');
+  const days = new Set(entries.map(e => e.timestamp.slice(0,10))).size;
+  document.getElementById('stat-episodes').textContent = eps.length;
+  document.getElementById('stat-checkins').textContent = cis.length;
+  document.getElementById('stat-days').textContent = days;
+
+  // Recent episodes
+  const recent = eps.slice(0,3);
+  const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
+  const commColors = { normal:'var(--good)', effortful:'var(--warn)', minimal:'#f97316', nonverbal:'var(--danger)' };
+  if (recent.length) {
+    document.getElementById('recent-section').style.display = 'block';
+    document.getElementById('recent-list').innerHTML = recent.map(e => {
+      const d = new Date(e.timestamp);
+      const bc = sevColors[e.severity] || 'var(--border)';
+      return `<div class="recent-ep" style="border-left-color:${bc}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="mono" style="font-size:12px;color:var(--dim)">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+          ${e.communicationLevel ? `<span style="font-size:12px;color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : ''}
+        </div>
+        ${e.limbsAffected?.length ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">${e.limbsAffected.join(' → ')}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── EXPORT ────────────────────────────────────────────────────
+function exportReport() {
+  const entries = DB.allEntries();
+  const eps = entries.filter(e => e.type === 'episode');
+  const cis = entries.filter(e => e.type === 'checkin');
+
+  const trigCount = {};
+  eps.forEach(e => (e.triggers||[]).forEach(t => { trigCount[t] = (trigCount[t]||0)+1; }));
+  const topTriggers = Object.entries(trigCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  let r = `SYMPTOM TRACKING REPORT\nGenerated: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
+  r += `SUMMARY\nEpisodes: ${eps.length}  |  Check-ins: ${cis.length}  |  Days tracked: ${new Set(entries.map(e=>e.timestamp.slice(0,10))).size}\n`;
+  if (entries.length) r += `Date range: ${new Date(entries[entries.length-1].timestamp).toLocaleDateString()} – ${new Date(entries[0].timestamp).toLocaleDateString()}\n`;
+  r += '\n';
+
+  if (topTriggers.length) {
+    r += `TOP TRIGGERS\n${topTriggers.map(([t,c])=>`  ${t.replace(/_/g,' ')}: ${c}x`).join('\n')}\n\n`;
+  }
+
+  const sevLabels = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe (Arizona far away)' };
+
+  r += `EPISODES\n${'─'.repeat(30)}\n`;
+  eps.forEach(e => {
+    const d = new Date(e.timestamp);
+    r += `\n${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}\n`;
+    if (e.firstJerkTime) r += `  First jerk: ${e.firstJerkTime}\n`;
+    if (e.prodrome?.length) r += `  Prodrome: ${e.prodrome.join(', ')}\n`;
+    if (e.limbsAffected?.length) r += `  Limbs: ${e.limbsAffected.join(', ')}\n`;
+    if (e.chestTight) r += `  Chest tightness: YES\n`;
+    if (e.cane) r += `  Cane required: YES\n`;
+    if (e.communicationLevel) r += `  Communication: ${e.communicationLevel}\n`;
+    if (e.externalObservation) r += `  Observed by others as: ${e.externalObservation}\n`;
+    if (e.severity) r += `  Severity vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
+    if (e.weather?.pressure) r += `  Barometric pressure: ${e.weather.pressure} hPa (6hr trend: ${e.weather.trend>0?'+':''}${e.weather.trend})\n`;
+    if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F\n`;
+    if (e.triggers?.length) r += `  Triggers: ${e.triggers.join(', ')}\n`;
+    if (e.fastedHours) r += `  Hours fasted: ${e.fastedHours}\n`;
+    if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
+    if (e.notes) r += `  Notes: ${e.notes}\n`;
+  });
+
+  r += `\nDAILY CHECK-INS\n${'─'.repeat(30)}\n`;
+  cis.forEach(e => {
+    const d = new Date(e.timestamp);
+    r += `\n${d.toLocaleDateString()}\n`;
+    if (e.communicationLevel) r += `  Communication: ${e.communicationLevel}\n`;
+    if (e.nap) r += `  Nap: ${e.nap}${e.napHours?' ('+e.napHours+'h)':''}\n`;
+    if (e.workCapacity) r += `  Work capacity: ${e.workCapacity}\n`;
+    if (e.cancelledPlans) r += `  Cancelled plans: ${e.cancelledPlans}\n`;
+    if (e.heatTherapy?.length) r += `  Heat therapy: ${e.heatTherapy.join(', ')}\n`;
+    if (e.sleep) r += `  Sleep: ${e.sleep}\n`;
+    if (e.hormonalSymptoms) r += `  Hormonal symptoms: ${e.hormonalSymptoms}\n`;
+    if (e.severity) r += `  Overall vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
+    if (e.notes) r += `  Notes: ${e.notes}\n`;
+  });
+
+  const blob = new Blob([r], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `health-report-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Report downloaded ✓');
+}
+
+function clearData() {
+  if (confirm('Permanently delete all logged entries? This cannot be undone.')) {
+    DB.keys('entry:').forEach(k => localStorage.removeItem(k));
+    updateStats();
+    showToast('Data cleared', 'var(--warn)');
+  }
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  const navBtn = document.getElementById(`nav-${name}`);
+  if (navBtn) navBtn.classList.add('active');
+  document.getElementById('app').scrollTop = 0;
+  if (name === 'log') renderLog();
+  if (name === 'home') updateStats();
+}
+
+function goHome() {
+  switchView('home');
+  updateStats();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || 'var(--good)';
+  t.style.color = color ? 'var(--text)' : '#000';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── MEAL TRACKING ─────────────────────────────────────────────
+function logMeal() {
+  const meal = { timestamp: new Date().toISOString(), type: 'meal' };
+  DB.set('meal:last', meal);
+  showToast('Meal logged ✓');
+  renderMealCard();
+}
+
+function getMealSuggestion(hoursElapsed) {
+  const hour = new Date().getHours();
+  // Time of day categories
+  const isMorning = hour >= 6 && hour < 12;
+  const isMidday = hour >= 12 && hour < 16;
+  const isAfternoon = hour >= 16 && hour < 20;
+  const isEvening = hour >= 20 || hour < 6;
+
+  if (hoursElapsed < 4) return null; // Not needed yet
+
+  // Compound risk: pressure dropping AND fasting 4+ hours
+  const pressureFalling = currentWeather && currentWeather.trend < -1.5;
+  const isCompound = pressureFalling && hoursElapsed >= 4;
+
+  if (isCompound) {
+    return {
+      level: 'compound',
+      icon: '⚠️',
+      title: 'Eat now — multiple risk factors active',
+      sub: 'Falling pressure + ' + Math.round(hoursElapsed) + 'h fasted. Almonds alone are not enough right now.',
+      suggestion: 'You need protein + fat + a small carbohydrate together. Try: nut butter on a rice cake, hummus with vegetables, or yogurt with berries and nuts. This combination stabilizes blood glucose AND supports GABAergic tone.'
+    };
+  }
+
+  // Standard suggestions by time + hours elapsed
+  if (hoursElapsed >= 7) {
+    const suggestions = {
+      morning: 'Nut butter on a rice cake, or yogurt with berries and almonds. Your brain needs glucose + protein after this long.',
+      midday: 'More than a snack needed now — try hummus with vegetables and a rice cake, or a proper small meal if possible.',
+      afternoon: 'This is your highest-risk window. Eat something substantial: lentil soup, rice with beans, or nut butter with a banana.',
+      evening: 'Nut butter with a banana or a small bowl of oatmeal with nuts. Avoid anything sugary before sleep.'
+    };
+    return {
+      level: 'danger',
+      icon: '🔴',
+      title: Math.round(hoursElapsed) + ' hours since eating — eat now',
+      sub: 'Extended fasting significantly affects your neurological stability.',
+      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
+    };
+  }
+
+  if (hoursElapsed >= 5) {
+    const suggestions = {
+      morning: 'A handful of almonds plus a piece of fruit (not almonds alone). The fruit adds glucose your brain needs.',
+      midday: 'Almonds + dried fruit, or hummus with a few crackers. Pair protein/fat with a small carbohydrate.',
+      afternoon: 'Nut butter with apple slices, or yogurt with nuts. This window is your highest episode risk time — don't skip this.',
+      evening: 'Pumpkin seeds with a few dates, or a small amount of yogurt. Light protein + small carb before sleep.'
+    };
+    return {
+      level: 'danger',
+      icon: '🟠',
+      title: Math.round(hoursElapsed) + 'h fasted — eat something',
+      sub: 'Blood glucose low. This affects GABA and autonomic stability.',
+      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
+    };
+  }
+
+  if (hoursElapsed >= 4) {
+    const suggestions = {
+      morning: 'A handful of almonds plus a piece of fruit. Protein + fat + glucose together.',
+      midday: 'Almonds with a few dates or crackers work well here.',
+      afternoon: 'Snack now before symptoms build. Nut butter on a rice cake, or hummus with vegetables.',
+      evening: 'Something small before the evening: nuts with a little dried fruit, or a small yogurt.'
+    };
+    return {
+      level: 'warn',
+      icon: '🟡',
+      title: Math.round(hoursElapsed) + 'h since eating — consider a snack',
+      sub: 'Getting into the window where fasting affects neurological stability.',
+      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
+    };
+  }
+
+  return null;
+}
+
+function renderMealCard() {
+  const el = document.getElementById('meal-card');
+  if (!el) return;
+
+  const last = DB.get('meal:last');
+  const now = new Date();
+
+  if (!last) {
+    // No meal logged yet
+    el.innerHTML = `<div class="meal-card warn">
+      <span class="meal-icon">🍽️</span>
+      <div class="meal-info">
+        <div class="meal-title" style="color:var(--warn)">No meal logged yet today</div>
+        <div class="meal-sub">Tap when you eat to track fasting gaps</div>
+      </div>
+      <button class="meal-btn" onclick="logMeal()">I just ate</button>
+    </div>`;
+    return;
+  }
+
+  const elapsed = (now - new Date(last.timestamp)) / 3600000;
+  const suggestion = getMealSuggestion(elapsed);
+
+  if (!suggestion) {
+    // Recently ate — show timer, no alert
+    const mins = Math.round(elapsed * 60);
+    const display = elapsed < 1 ? mins + ' min ago' : Math.round(elapsed * 10) / 10 + 'h ago';
+    el.innerHTML = `<div class="meal-card ok">
+      <span class="meal-icon">✅</span>
+      <div class="meal-info">
+        <div class="meal-title" style="color:var(--good)">Last ate: ${display}</div>
+        <div class="meal-sub">Next check at 4 hours</div>
+      </div>
+      <button class="meal-btn" onclick="logMeal()">I just ate</button>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="meal-card ${suggestion.level}">
+    <span class="meal-icon">${suggestion.icon}</span>
+    <div class="meal-info">
+      <div class="meal-title" style="color:${suggestion.level === 'compound' || suggestion.level === 'danger' ? 'var(--danger)' : 'var(--warn)'}">${suggestion.title}</div>
+      <div class="meal-sub">${suggestion.sub}</div>
+      <div class="meal-suggestion">${suggestion.suggestion}</div>
+    </div>
+  </div>
+  <button class="btn full" onclick="logMeal()" style="margin-bottom:12px">I just ate ✓</button>`;
+}
+
+let mealTimer = null;
+
+function startMealTimer() {
+  if (mealTimer) clearInterval(mealTimer);
+  mealTimer = setInterval(renderMealCard, 60000); // Update every minute
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+function initApp() {
+  fetchWeather();
+  updateStats();
+  renderMealCard();
+  startMealTimer();
+}
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// Start
+initPIN();
+</script>
+</body>
+</html>
