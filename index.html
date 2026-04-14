@@ -10,7 +10,7 @@
 <title>Health Tracker</title>
 <link rel="manifest" href="manifest.json">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap');
+  /* fonts loaded locally */
   :root {
     --bg: #0a0e14;
     --surface: #111827;
@@ -29,10 +29,10 @@
   html, body { height: 100%; overflow: hidden; }
   body {
     background: var(--bg); color: var(--text);
-    font-family: 'Sora', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     display: flex; flex-direction: column;
   }
-  .mono { font-family: 'JetBrains Mono', monospace; }
+  .mono { font-family: 'Courier New', Courier, monospace; }
   #app {
     flex: 1; overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -67,7 +67,7 @@
     background: var(--surface); border: 1px solid var(--border);
     color: var(--text); font-size: 22px; font-weight: 600;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-family: 'Sora', sans-serif; transition: all 0.1s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: all 0.1s;
     -webkit-user-select: none;
   }
   .pin-key:active { background: var(--accent); color: #000; transform: scale(0.95); }
@@ -93,7 +93,7 @@
   .nav-btn {
     flex: 1; padding: 12px 4px 8px;
     background: none; border: none; color: var(--dim);
-    font-size: 10px; font-family: 'Sora', sans-serif;
+    font-size: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     cursor: pointer; display: flex; flex-direction: column;
     align-items: center; gap: 4px; transition: color 0.15s;
   }
@@ -114,7 +114,7 @@
     padding: 20px 16px 8px;
   }
   .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-  .page-subtitle { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+  .page-subtitle { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; font-family: 'Courier New', Courier, monospace; }
 
   /* CARDS */
   .card {
@@ -131,7 +131,7 @@
   /* WEATHER */
   .weather-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
   .weather-cell { text-align: center; }
-  .weather-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; }
+  .weather-val { font-family: 'Courier New', Courier, monospace; font-size: 20px; font-weight: 600; }
   .weather-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
   .weather-sub { font-size: 11px; margin-top: 2px; }
   .weather-meta { font-size: 11px; color: var(--dim); margin-top: 10px; display: flex; align-items: center; gap: 8px; }
@@ -139,7 +139,7 @@
 
   /* STATS */
   .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); text-align: center; gap: 8px; }
-  .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--accent); }
+  .stat-val { font-family: 'Courier New', Courier, monospace; font-size: 26px; font-weight: 700; color: var(--accent); }
   .stat-label { font-size: 10px; color: var(--dim); margin-top: 2px; }
 
   /* BUTTONS */
@@ -147,7 +147,7 @@
     background: var(--accent); color: #000;
     border: none; border-radius: 10px;
     padding: 14px 24px; font-size: 15px; font-weight: 600;
-    font-family: 'Sora', sans-serif; cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer;
     transition: opacity 0.15s; letter-spacing: 0.2px;
     -webkit-user-select: none;
   }
@@ -181,7 +181,7 @@
     background: var(--surface2); color: var(--mid);
     border: 1px solid var(--border); border-radius: 8px;
     padding: 9px 14px; font-size: 13px; cursor: pointer;
-    font-family: 'Sora', sans-serif; transition: all 0.15s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; transition: all 0.15s;
     -webkit-user-select: none;
   }
   .choice.selected {
@@ -198,7 +198,7 @@
     background: var(--surface2); border: 1px solid var(--border);
     border-radius: 10px; padding: 14px 16px;
     font-size: 14px; cursor: pointer; text-align: left;
-    font-family: 'Sora', sans-serif; color: var(--mid);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--mid);
     transition: all 0.15s; -webkit-user-select: none;
   }
   .comm-btn:active { transform: scale(0.98); }
@@ -209,7 +209,7 @@
     background: var(--surface2); border: 1px solid var(--border);
     border-radius: 10px; padding: 14px 16px;
     font-size: 14px; cursor: pointer; text-align: left;
-    font-family: 'Sora', sans-serif; color: var(--mid);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--mid);
     transition: all 0.15s; -webkit-user-select: none;
   }
 
@@ -218,7 +218,7 @@
   .toggle-btn {
     flex: 1; background: var(--surface2); border: 1px solid var(--border);
     border-radius: 8px; padding: 12px; font-size: 14px;
-    cursor: pointer; font-family: 'Sora', sans-serif; color: var(--mid);
+    cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--mid);
     transition: all 0.15s; text-align: center; -webkit-user-select: none;
   }
   .toggle-btn.on { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
@@ -229,7 +229,7 @@
     background: var(--surface2); border: 1px solid var(--border);
     border-radius: 8px; padding: 12px 14px;
     color: var(--text); font-size: 15px; width: 100%;
-    font-family: 'Sora', sans-serif; outline: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; outline: none;
     -webkit-appearance: none;
   }
   input[type=number] { width: 100px; }
@@ -250,7 +250,7 @@
     position: absolute; background: var(--surface);
     border: 1px solid var(--border); border-radius: 6px;
     padding: 4px 8px; font-size: 11px; cursor: pointer;
-    font-family: 'Sora', sans-serif; color: var(--mid);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--mid);
     transition: all 0.15s; transform: translateX(-50%);
     white-space: nowrap; -webkit-user-select: none;
   }
@@ -278,7 +278,7 @@
   }
   .entry-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
   .entry-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-  .entry-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); }
+  .entry-time { font-family: 'Courier New', Courier, monospace; font-size: 11px; color: var(--dim); }
   .entry-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
   .entry-chip { font-size: 11px; padding: 3px 7px; border-radius: 4px; background: var(--surface2); color: var(--mid); }
   .entry-notes { font-size: 12px; color: var(--dim); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
@@ -337,7 +337,7 @@
   .meal-btn {
     background: var(--good); color: #000; border: none; border-radius: 8px;
     padding: 10px 14px; font-size: 13px; font-weight: 700;
-    font-family: 'Sora', sans-serif; cursor: pointer; flex-shrink: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; flex-shrink: 0;
     white-space: nowrap; -webkit-user-select: none;
   }
   .meal-btn:active { opacity: 0.8; }
@@ -1408,7 +1408,7 @@ function getMealSuggestion(hoursElapsed) {
     const suggestions = {
       morning: 'A handful of almonds plus a piece of fruit (not almonds alone). The fruit adds glucose your brain needs.',
       midday: 'Almonds + dried fruit, or hummus with a few crackers. Pair protein/fat with a small carbohydrate.',
-      afternoon: 'Nut butter with apple slices, or yogurt with nuts. This window is your highest episode risk time — don't skip this.',
+      afternoon: 'Nut butter with apple slices, or yogurt with nuts. This window is your highest episode risk time — do not skip this.',
       evening: 'Pumpkin seeds with a few dates, or a small amount of yogurt. Light protein + small carb before sleep.'
     };
     return {
@@ -1503,12 +1503,7 @@ function initApp() {
   startMealTimer();
 }
 
-// Service Worker registration
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
+// Service Worker disabled for initial load
 
 // Start
 initPIN();
