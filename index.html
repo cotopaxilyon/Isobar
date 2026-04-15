@@ -944,10 +944,10 @@ function renderEpStep() {
     case 3:
       html = `
         <div class="comm-options">
-          ${commBtn('normal','Normal — full sentences, back and forth','var(--good)',epData.communicationLevel)}
-          ${commBtn('effortful','Possible but effortful — slower, shorter','var(--warn)',epData.communicationLevel)}
-          ${commBtn('minimal','Mostly yes/no answers only','#f97316',epData.communicationLevel)}
-          ${commBtn('nonverbal','Mostly non-verbal right now','var(--danger)',epData.communicationLevel)}
+          ${commBtn('normal','Talking easily — normal back and forth','var(--good)',epData.communicationLevel)}
+          ${commBtn('quieter','Quieter than usual — responding, not initiating','var(--warn)',epData.communicationLevel)}
+          ${commBtn('shortened','Shorter responses — harder to elaborate','#f97316',epData.communicationLevel)}
+          ${commBtn('brief','Brief only — yes/no or less','var(--danger)',epData.communicationLevel)}
         </div>
         <div class="section" style="margin-top:16px">
           <span class="label">Has anyone noticed you seem quiet or flat?</span>
@@ -1099,8 +1099,8 @@ function renderCiStep() {
           <input type="date" value="${ciData.entryDate}" oninput="ciData.entryDate=this.value" style="width:100%">
         </div>
         <div class="comm-options">
-          ${['normal','effortful','minimal','nonverbal'].map((v,i) => {
-            const labels = ['Normal — talking easily','Possible but effortful','Mostly yes/no answers','Mostly non-verbal'];
+          ${['normal','quieter','shortened','brief'].map((v,i) => {
+            const labels = ['Talking easily — normal back and forth','Quieter than usual — responding, not initiating','Shorter responses — harder to elaborate','Brief only — yes/no or less'];
             const colors = ['var(--good)','var(--warn)','#f97316','var(--danger)'];
             const sel = ciData.communicationLevel === v;
             return `<button class="comm-btn" style="${sel?`background:${colors[i]}20;color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
@@ -1229,7 +1229,7 @@ function renderLog() {
     return;
   }
   const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
-  const commColors = { normal:'var(--good)', effortful:'var(--warn)', minimal:'#f97316', nonverbal:'var(--danger)' };
+  const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
   el.innerHTML = entries.map(e => {
     const d = new Date(e.timestamp);
     const isEp = e.type === 'episode';
@@ -1267,7 +1267,7 @@ function updateStats() {
   // Recent episodes
   const recent = eps.slice(0,3);
   const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
-  const commColors = { normal:'var(--good)', effortful:'var(--warn)', minimal:'#f97316', nonverbal:'var(--danger)' };
+  const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
   if (recent.length) {
     document.getElementById('recent-section').style.display = 'block';
     document.getElementById('recent-list').innerHTML = recent.map(e => {
@@ -1304,6 +1304,7 @@ function exportReport() {
   }
 
   const sevLabels = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe (Arizona far away)' };
+  const commLabels = { normal:'Talking easily', quieter:'Quieter than usual', shortened:'Shorter responses', brief:'Brief only / yes-no or less' };
 
   r += `EPISODES\n${'─'.repeat(30)}\n`;
   eps.forEach(e => {
@@ -1314,7 +1315,7 @@ function exportReport() {
     if (e.limbsAffected?.length) r += `  Limbs: ${e.limbsAffected.join(', ')}\n`;
     if (e.chestTight) r += `  Chest tightness: YES\n`;
     if (e.cane) r += `  Cane required: YES\n`;
-    if (e.communicationLevel) r += `  Communication: ${e.communicationLevel}\n`;
+    if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
     if (e.externalObservation) r += `  Observed by others as: ${e.externalObservation}\n`;
     if (e.severity) r += `  Severity vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
     if (e.weather?.pressure) r += `  Barometric pressure: ${e.weather.pressure} hPa (6hr trend: ${e.weather.trend>0?'+':''}${e.weather.trend})\n`;
@@ -1334,7 +1335,7 @@ function exportReport() {
   cis.forEach(e => {
     const d = new Date(e.timestamp);
     r += `\n${d.toLocaleDateString()}\n`;
-    if (e.communicationLevel) r += `  Communication: ${e.communicationLevel}\n`;
+    if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
     if (e.nap) r += `  Nap: ${e.nap}${e.napHours?' ('+e.napHours+'h)':''}\n`;
     if (e.workCapacity) r += `  Work capacity: ${e.workCapacity}\n`;
     if (e.cancelledPlans) r += `  Cancelled plans: ${e.cancelledPlans}\n`;

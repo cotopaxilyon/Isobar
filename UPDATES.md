@@ -2,155 +2,6 @@
 
 ---
 
-# 1. Communication Scale Revision
-
-## Problem
-
-The current communication capacity scale has two issues:
-
-1. **Bottom-heavy distribution** — two of four options describe states the patient rarely reaches, wasting half the option space on extremes.
-2. **Deficit-framed labels** — options describe what she *can't* do ("mostly yes/no answers") rather than what is actually happening.
-
-There is also a meaningful gap between "effortful" and "yes/no only" that is currently unnamed.
-
----
-
-## Proposed New Scale
-
-| Value | Display label | Color |
-|---|---|---|
-| `normal` | Talking easily — normal back and forth | `var(--good)` (green) |
-| `quieter` | Quieter than usual — responding, not initiating | `var(--warn)` (yellow) |
-| `shortened` | Shorter responses — harder to elaborate | `#f97316` (orange) |
-| `brief` | Brief only — yes/no or less | `var(--danger)` (red) |
-
-The previous `minimal` and `nonverbal` values are collapsed into `brief`. The new `quieter` option fills the gap between `normal` and `shortened`.
-
----
-
-## Files to Change
-
-Only one file: `index.html`
-
----
-
-## Implementation Steps
-
-### Step 1 — Update the check-in form (step 0)
-
-**Location:** `renderCiStep()`, `case 0`, lines ~1078–1084
-
-Change the `values` array, `labels` array, and `colors` array:
-
-```js
-// Before
-['normal','effortful','minimal','nonverbal']
-['Normal — talking easily','Possible but effortful','Mostly yes/no answers','Mostly non-verbal']
-['var(--good)','var(--warn)','#f97316','var(--danger)']
-
-// After
-['normal','quieter','shortened','brief']
-['Talking easily — normal back and forth','Quieter than usual — responding, not initiating','Shorter responses — harder to elaborate','Brief only — yes/no or less']
-['var(--good)','var(--warn)','#f97316','var(--danger)']
-```
-
----
-
-### Step 2 — Update the episode form (step 3)
-
-**Location:** `renderEpStep()`, `case 3`, lines ~935–941
-
-Same four values, same labels, same colors as Step 1.
-
-```js
-// Before
-commBtn('normal','Normal — full sentences, back and forth','var(--good)',epData.communicationLevel)
-commBtn('effortful','Possible but effortful — slower, shorter','var(--warn)',epData.communicationLevel)
-commBtn('minimal','Mostly yes/no answers only','#f97316',epData.communicationLevel)
-commBtn('nonverbal','Mostly non-verbal right now','var(--danger)',epData.communicationLevel)
-
-// After
-commBtn('normal','Talking easily — normal back and forth','var(--good)',epData.communicationLevel)
-commBtn('quieter','Quieter than usual — responding, not initiating','var(--warn)',epData.communicationLevel)
-commBtn('shortened','Shorter responses — harder to elaborate','#f97316',epData.communicationLevel)
-commBtn('brief','Brief only — yes/no or less','var(--danger)',epData.communicationLevel)
-```
-
----
-
-### Step 3 — Update display colors in the log view
-
-**Location:** `commColors` is defined in TWO places — both must be updated:
-
-1. Inside `renderLog()`, line ~1232
-2. Inside `updateStats()`, line ~1270
-
-```js
-// Before (both locations)
-const commColors = { normal: 'var(--good)', effortful: 'var(--warn)', minimal: '#f97316', nonverbal: 'var(--danger)' };
-
-// After (both locations)
-const commColors = { normal: 'var(--good)', quieter: 'var(--warn)', shortened: '#f97316', brief: 'var(--danger)' };
-```
-
-Missing either location means old comm values (effortful, minimal, nonverbal) display wrong colors in the recent episodes section on the home screen even after the log view is fixed.
-
----
-
-### Step 4 — Update the plain-text export
-
-**Location:** `generateReport()` function, lines ~1287 and ~1302
-
-The export uses `e.communicationLevel` directly as a string. Since the values themselves are changing (e.g. `minimal` → `brief`), add a display map so the report reads clearly:
-
-```js
-const commLabels = {
-  normal: 'Talking easily',
-  quieter: 'Quieter than usual',
-  shortened: 'Shorter responses',
-  brief: 'Brief only / yes-no or less',
-};
-```
-
-Apply `commLabels[e.communicationLevel] || e.communicationLevel` in both the episode and check-in report sections.
-
----
-
-## Testing Steps
-
-### Manual test — Check-in form
-1. Open the app and tap **Daily Check-in**.
-2. On step 1 ("How Are You Communicating?"), confirm four buttons appear with the new labels in order: Talking easily → Quieter → Shorter responses → Brief only.
-3. Tap each button and confirm it highlights in the correct color (green / yellow / orange / red).
-4. Select one and tap **Next →** to confirm selection persists across the step change.
-5. Complete and save the check-in.
-
-### Manual test — Episode form
-1. Tap **Log Episode** and step through to the communication step (step 4).
-2. Confirm the same four labels appear with the same colors.
-3. Select one and continue to confirm it saves correctly.
-
-### Manual test — Log view
-1. Open **View Log**.
-2. Find the entries saved in the steps above.
-3. Confirm the communication level chip shows the correct value in the correct color.
-
-### Manual test — Export
-1. Tap **Export**.
-2. In the generated text, confirm communication level appears for both episode and check-in entries and reads clearly (not raw key values).
-
-### Data integrity note
-Any entries saved before this change will have old values (`effortful`, `minimal`, `nonverbal`). These will still display — they just won't match the new color map. This is acceptable since historical data should not be retroactively altered. Confirm old entries show without crashing (they will fall through to `var(--mid)` gray via the `|| 'var(--mid)'` fallback already in the code).
-
----
-
-## Out of Scope
-
-- No changes to data structure shape
-- No migration of historical entries
-- No changes to the PIN, weather, meal, or episode logging logic
-
----
 
 # 2. Body Map Replacement
 
@@ -1119,3 +970,36 @@ r += `SUMMARY\nEpisodes: ${eps.length}  |  Check-ins: ${cis.length}  |  Muscle e
 7. Export. Confirm a MUSCLE EVENTS section appears with correct data.
 8. Confirm the SUMMARY line includes the muscle event count.
 9. Log a muscle event with no body location and no severity — confirm it saves without crashing (no required fields).
+
+---
+
+# Shipped
+
+## ✅ UPDATE-1: Communication Scale Revision — shipped 2026-04-14
+
+UAT: 11/11 PASS (see `TESTING_UPDATE_1_shipped.md`). Four-value scale `normal / quieter / shortened / brief` now live across episode form, check-in form, log view, home recent-episodes, and export. Legacy values (`effortful / minimal / nonverbal`) fall through to gray `var(--mid)` in both surfaces; export prints raw key for legacy entries. No data migration performed (by design).
+
+### Problem
+The original comm scale was bottom-heavy (two of four options described states the patient rarely reached) and deficit-framed ("mostly yes/no answers"). There was also an unnamed gap between `effortful` and `yes/no only`.
+
+### New Scale
+| Value | Display label | Color |
+|---|---|---|
+| `normal` | Talking easily — normal back and forth | `var(--good)` |
+| `quieter` | Quieter than usual — responding, not initiating | `var(--warn)` |
+| `shortened` | Shorter responses — harder to elaborate | `#f97316` |
+| `brief` | Brief only — yes/no or less | `var(--danger)` |
+
+Previous `minimal` and `nonverbal` collapsed into `brief`; `quieter` fills the gap between `normal` and `shortened`.
+
+### Sites touched in `index.html`
+- `renderCiStep()` case 0 — check-in form labels/values/colors
+- `renderEpStep()` case 3 — episode form labels/values/colors
+- `renderLog()` — `commColors` map
+- `updateStats()` — `commColors` map (home recent episodes)
+- `generateReport()` — `commLabels` prose map for export
+
+### Out of Scope (held)
+- No data-structure migration
+- No retroactive rewrite of historical entries
+- No changes to PIN, weather, meal, or episode logic
