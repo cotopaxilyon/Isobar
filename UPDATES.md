@@ -975,6 +975,24 @@ r += `SUMMARY\nEpisodes: ${eps.length}  |  Check-ins: ${cis.length}  |  Muscle e
 
 # Shipped
 
+## ✅ Hotfix 2026-04-14: Date picker UTC off-by-one
+
+**Symptom:** Starting a new episode or check-in at night (local time late enough that UTC had rolled to the next day) pre-filled the "Date of episode" picker with tomorrow's date. Reproduced live at 10:54 PM on 2026-04-14: picker showed 2026-04-15.
+
+**Root cause:** `new Date().toISOString().slice(0,10)` returns the **UTC** date, not local. In any timezone west of UTC, the UTC date flips earlier than the local one in the evening, so the `<input type="date">` default was a day ahead.
+
+**Fix:** Added `localDateISO(d)` helper in `index.html` (just above `startEpisode`) that formats `YYYY-MM-DD` from the Date's local getters. Both init sites now use it:
+- `startEpisode()` — was line 850, now uses `localDateISO(now)`
+- `startCheckin()` — was line 1064, now uses `localDateISO(ciNow)`
+
+Downstream reconstruction `new Date(\`${entryDate}T${timeStr}\`)` already parses without `Z`, i.e. as local time — unchanged, still correct.
+
+**Data impact:** None. Existing entries' `timestamp` ISO strings were always correct; only the initial picker value was wrong. No migration needed.
+
+**Verify:** In devtools console, `new Date().toISOString().slice(0,10)` may differ from `new Date().toLocaleDateString('en-CA')`; after reload, the episode and check-in date picker now matches the latter (local date).
+
+---
+
 ## ✅ UPDATE-1: Communication Scale Revision — shipped 2026-04-14
 
 UAT: 11/11 PASS (see `TESTING_UPDATE_1_shipped.md`). Four-value scale `normal / quieter / shortened / brief` now live across episode form, check-in form, log view, home recent-episodes, and export. Legacy values (`effortful / minimal / nonverbal`) fall through to gray `var(--mid)` in both surfaces; export prints raw key for legacy entries. No data migration performed (by design).

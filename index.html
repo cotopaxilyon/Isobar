@@ -843,11 +843,16 @@ const EP_STEPS = [
   { title: 'Notes', sub: '' },
 ];
 
+const localDateISO = d => {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+};
+
 function startEpisode() {
   const now = new Date();
   epData = {
     type: 'episode', timestamp: now.toISOString(),
-    entryDate: now.toISOString().slice(0,10),
+    entryDate: localDateISO(now),
     prodromeTime: now.toTimeString().slice(0,5), firstJerkTime: '',
     prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
     chestTight: false, cane: false,
@@ -1061,7 +1066,7 @@ function startCheckin() {
   const ciNow = new Date();
   ciData = {
     type: 'checkin', timestamp: ciNow.toISOString(),
-    entryDate: ciNow.toISOString().slice(0,10),
+    entryDate: localDateISO(ciNow),
     communicationLevel: null, externalObservation: null,
     bodyPain: [], sensations: {}, nap: null, napHours: '',
     workCapacity: null, cancelledPlans: null, heatTherapy: [],
