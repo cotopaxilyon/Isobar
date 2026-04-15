@@ -2,7 +2,6 @@
 
 ---
 
-
 # 2. Body Map Replacement
 
 ## Problem
@@ -88,7 +87,7 @@ Remove or repurpose `.body-map` height/position styles. Add:
 
 ---
 
-# 3. Meal Logging — Capture Meal Size
+# 3. Meal Logging — Capture Meal Size + Edit Time
 
 ## Problem
 
@@ -96,9 +95,13 @@ Remove or repurpose `.body-map` height/position styles. Add:
 
 A free-text food field is not appropriate — too much cognitive load when fasted and impaired, exactly when the logging matters most.
 
+Separately, there is no way to correct the meal timestamp after the fact. If she eats breakfast but forgets to tap "I just ate" until lunchtime, the only option is to log at tap time — which hides the real fasting gap and suppresses the compound-risk alert when it should fire.
+
 ## Approach
 
 After tapping "I just ate", show a **one-tap size picker** with 4 options. Store `mealSize` alongside the timestamp. Adjust reminder thresholds based on size.
+
+The same sheet also supports **adjusting the time** via a `datetime-local` input, prefilled with the current tap time. This covers both "log now" (accept default) and "I ate earlier and forgot to tap" (edit the time) in one flow. Additionally, the resting meal card exposes an "Edit time" link so a past log can be corrected without re-logging.
 
 ## New Meal Size Options
 
@@ -121,7 +124,16 @@ Only one file: `index.html`
 
 **Location:** `logMeal()`, line ~1364
 
-Instead of saving immediately, render a size picker inside the meal card. On selection, call `saveMeal(size)` which writes `{ timestamp, type: 'meal', mealSize: size }` to storage. For `drink`, write to a separate key `meal:last_drink` and do not update `meal:last`.
+Instead of saving immediately, render a picker sheet inside the meal card containing:
+- The 4 size options.
+- A `datetime-local` input prefilled with `new Date()`, labeled "When did you eat?".
+
+On size selection, call `saveMeal(size, timestamp)` which writes `{ timestamp, type: 'meal', mealSize: size }` to storage using the input's value (falling back to `new Date().toISOString()` if blank). For `drink`, write to a separate key `meal:last_drink` and do not update `meal:last`.
+
+**Guardrails in `saveMeal`:**
+- Reject timestamps in the future (> now + 1 min) — show toast, do not save.
+- Reject timestamps older than 24h — show toast, do not save.
+- Preserve any other fields already on the existing record with `{ ...existing, timestamp, mealSize: size }` so future fields survive edits.
 
 ### Step 2 — Update `getMealSuggestion()` to use `mealSize`
 
@@ -140,15 +152,32 @@ When the reminder fires, include what size the last log was in the sub-text. E.g
 
 When `mealSize` is set and within the ok window, show the size in the meal card summary: "Last ate: light meal, 2h ago."
 
+### Step 5 — Add "Edit time" affordance to the resting meal card
+
+**Location:** `renderMealCard()`, both the "recently ate" and active-reminder branches.
+
+Add a small text link/button ("Edit time") next to the timestamp display. Tapping it opens the same picker sheet from Step 1, pre-populated with the existing `meal:last.timestamp` and `mealSize`. Saving calls `saveMeal(size, timestamp)` which reuses the guardrails from Step 1. The "no meal logged yet" branch does not need a separate edit entry — tapping "I just ate" already opens the sheet where the time can be backdated.
+
+### Step 6 — Wire the compound-risk alert to re-evaluate after edits
+
+After `saveMeal` writes, call `renderMealCard()` so the tier (ok/warn/danger/compound) updates immediately. No other call sites need to change — `renderWeather()` already calls `renderMealCard()` when pressure data arrives.
+
 ## Testing Steps
 
-1. Tap **I just ate** and confirm the size picker appears (4 options).
-2. Select **Coffee / drink only** — confirm the fasting clock does not reset. If a previous meal was logged, confirm its time is still shown.
-3. Select **Small snack** — confirm the fasting clock resets. Wait (or manually advance) to 2.5h and confirm the reminder appears earlier than the default 4h.
-4. Select **Full meal** — confirm the alert does not appear until 5h.
-5. Confirm the meal card summary shows the size ("Last ate: full meal, 1.5h ago").
-6. Confirm the reminder copy references the size ("since your last snack").
-7. Export and confirm `mealSize` is not included in the plain-text report (it's operational data, not clinical data).
+1. Tap **I just ate** and confirm the picker sheet appears with 4 size options and a time input prefilled with now.
+2. Accept the default time and select **Light meal** — confirm fasting clock starts from now.
+3. Tap **I just ate** again, backdate the time to 6h ago, select **Light meal** — confirm the card immediately shows the 5h+ reminder tier.
+4. Tap **Edit time** on a resting meal card, set a time 5h ago, save — confirm tier upgrades and, if pressure trend < -1.5, the compound banner appears.
+5. Try to save a time in the future → toast rejects, record unchanged.
+6. Try to save a time > 24h ago → toast rejects, record unchanged.
+7. Select **Coffee / drink only** — confirm the fasting clock does not reset. If a previous meal was logged, confirm its time is still shown.
+8. Select **Small snack** — confirm the fasting clock resets. Wait (or manually advance) to 2.5h and confirm the reminder appears earlier than the default 4h.
+9. Select **Full meal** — confirm the alert does not appear until 5h.
+10. Confirm the meal card summary shows the size ("Last ate: full meal, 1.5h ago").
+11. Confirm the reminder copy references the size ("since your last snack").
+12. Edit a record that already has `mealSize` — change only the time and confirm `mealSize` is preserved.
+13. Reload the page after an edit — confirm the edited timestamp persists.
+14. Export and confirm `mealSize` is not included in the plain-text report (it's operational data, not clinical data).
 
 ---
 
@@ -1013,9 +1042,9 @@ Previous `minimal` and `nonverbal` collapsed into `brief`; `quieter` fills the g
 ### Sites touched in `index.html`
 - `renderCiStep()` case 0 — check-in form labels/values/colors
 - `renderEpStep()` case 3 — episode form labels/values/colors
-- `renderLog()` — `commColors` map
-- `updateStats()` — `commColors` map (home recent episodes)
-- `generateReport()` — `commLabels` prose map for export
+- `renderLog()` ~line 1232 — `commColors` map
+- `updateStats()` ~line 1270 — `commColors` map (home recent episodes)
+- `generateReport()` ~lines 1307–1338 — `commLabels` prose map for export
 
 ### Out of Scope (held)
 - No data-structure migration
