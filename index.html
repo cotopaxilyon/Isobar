@@ -124,16 +124,17 @@
   .card.alert-card { border-color: var(--danger); }
   .alert-banner {
     background: rgba(239,68,68,0.1); border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 12px;
-    font-size: 12px; font-weight: 600; color: var(--danger);
+    padding: 14px 16px; margin-bottom: 12px;
+    font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--danger);
   }
 
   /* WEATHER */
-  .weather-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-  .weather-cell { text-align: center; }
-  .weather-val { font-family: 'Courier New', Courier, monospace; font-size: 20px; font-weight: 600; }
+  .weather-grid { display: flex; flex-direction: column; gap: 8px; }
+  .weather-cell { padding: 8px 10px; border-radius: 8px; background: var(--surface2); }
+  .weather-val { font-family: 'Courier New', Courier, monospace; font-size: 18px; font-weight: 600; }
   .weather-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .weather-sub { font-size: 11px; margin-top: 2px; }
+  .weather-sub { font-size: 11px; margin-top: 2px; color: var(--dim); }
+  .weather-reference { font-size: 11px; color: var(--dim); display: flex; justify-content: space-between; margin-top: 6px; padding: 0 2px; }
   .weather-meta { font-size: 11px; color: var(--dim); margin-top: 10px; display: flex; align-items: center; gap: 8px; }
   .refresh-btn { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
 
@@ -236,27 +237,24 @@
   textarea { resize: vertical; line-height: 1.6; }
   input:focus, textarea:focus { border-color: var(--accent); }
 
-  /* BODY MAP */
-  .body-map {
-    position: relative; height: 340px;
-    background: var(--surface2); border-radius: 12px;
-    border: 1px solid var(--border);
+  /* BODY MAP GRID */
+  .body-grid {
+    display: flex; flex-direction: column; gap: 14px;
   }
-  .body-map-center {
-    position: absolute; left: 49%; top: 4%; width: 2px;
-    bottom: 4%; background: var(--border); opacity: 0.4;
+  .body-section-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--dim); font-family: 'Courier New', Courier, monospace;
+    margin-bottom: 4px;
   }
-  .body-region {
-    position: absolute; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 8px; font-size: 11px; cursor: pointer;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--mid);
-    transition: all 0.15s; transform: translateX(-50%);
-    white-space: nowrap; -webkit-user-select: none;
+  .body-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   }
-  .body-region.active {
-    background: var(--accent); color: #000;
-    border-color: var(--accent); font-weight: 600;
+  .body-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 8px; font-size: 13px;
+    color: var(--mid); cursor: pointer; min-height: 44px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transition: all 0.15s; -webkit-user-select: none; text-align: center;
   }
 
   /* STEP FORM */
@@ -385,10 +383,7 @@
   <!-- HOME VIEW -->
   <div id="view-home" class="view active">
     <div class="page-header">
-      <div>
-        <div class="page-subtitle">Isobar</div>
-        <div class="page-title">Cotopaxi</div>
-      </div>
+      <div class="page-subtitle">Isobar</div>
       <div id="pressure-summary" style="text-align:right"></div>
     </div>
 
@@ -415,8 +410,8 @@
         </div>
         <div class="action-card" style="background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.3)" onclick="startCheckin()">
           <span class="icon">📋</span>
-          <div class="title" style="color:var(--accent)">Daily Check-in</div>
-          <div class="sub">Pain & function</div>
+          <div class="title" style="color:var(--accent)">Morning Check-in</div>
+          <div class="sub">How you woke up</div>
         </div>
       </div>
 
@@ -678,7 +673,7 @@ async function fetchWeather() {
       navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000, enableHighAccuracy: false })
     );
     const { latitude: lat, longitude: lon } = pos.coords;
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=pressure_msl,temperature_2m,precipitation&current_weather=true&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=pressure_msl,temperature_2m,precipitation&current_weather=true&temperature_unit=fahrenheit&timezone=auto&forecast_days=1&past_days=3`;
     const r = await fetch(url);
     const d = await r.json();
 
@@ -696,6 +691,25 @@ async function fetchWeather() {
     const tempTrend = temp - temp6ago;
     const precip = d.hourly.precipitation[idx];
 
+    // --- Axis A: pressure dwell below local recent peak ---
+    const pArr = d.hourly.pressure_msl;
+    const peak72Start = Math.max(0, idx - 72);
+    const pressureRecentPeak = Math.max(...pArr.slice(peak72Start, idx + 1));
+    const dwellThreshold = pressureRecentPeak - 5;
+    const dwell48Start = Math.max(0, idx - 48);
+    const pressureDwellHours = pArr.slice(dwell48Start, idx + 1).filter(p => p < dwellThreshold).length;
+
+    // --- Axes B & C: rapid thermal transitions over 5h window, scanned across past 8h ---
+    const tArr = d.hourly.temperature_2m;
+    const scanStart = Math.max(0, idx - 8);
+    let tempMaxDrop5h = 0;
+    let tempMaxRise5h = 0;
+    for (let i = scanStart; i <= idx - 5; i++) {
+      const delta = tArr[i + 5] - tArr[i];
+      if (-delta > tempMaxDrop5h) tempMaxDrop5h = -delta;
+      if (delta > tempMaxRise5h) tempMaxRise5h = delta;
+    }
+
     currentWeather = {
       pressure: Math.round(pressure * 10) / 10,
       trend, temp,
@@ -704,7 +718,11 @@ async function fetchWeather() {
       precip, lat: Math.round(lat * 100) / 100,
       lon: Math.round(lon * 100) / 100,
       fetchedAt: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: now.toISOString()
+      timestamp: now.toISOString(),
+      pressureRecentPeak: Math.round(pressureRecentPeak * 10) / 10,
+      pressureDwellHours,
+      tempMaxDrop5h: Math.round(tempMaxDrop5h * 10) / 10,
+      tempMaxRise5h: Math.round(tempMaxRise5h * 10) / 10,
     };
 
     renderWeather();
@@ -716,52 +734,76 @@ async function fetchWeather() {
   }
 }
 
-function pressureStatus(hpa, trend) {
-  if (trend < -3) return { label: 'Rapid Drop ⚠', color: 'var(--danger)', icon: '↓↓' };
-  if (trend < -1.5) return { label: 'Falling', color: 'var(--warn)', icon: '↓' };
-  if (hpa < 980) return { label: 'Very Low', color: 'var(--warn)', icon: '▼' };
-  if (hpa < 1000) return { label: 'Low', color: 'var(--mid)', icon: '▽' };
-  return { label: 'Normal', color: 'var(--good)', icon: '—' };
+function axisState(metric, amber, red) {
+  if (metric >= red) return { level: 'red', color: 'var(--danger)' };
+  if (metric >= amber) return { level: 'amber', color: 'var(--warn)' };
+  return { level: 'green', color: 'var(--good)' };
+}
+
+function environmentalRisk(w) {
+  const dwell = axisState(w.pressureDwellHours || 0, 12, 24);
+  const drop  = axisState(w.tempMaxDrop5h || 0, 10, 14);
+  const rise  = axisState(w.tempMaxRise5h || 0, 10, 14);
+  const rank = { green: 0, amber: 1, red: 2 };
+  const worst = [dwell, drop, rise].reduce((acc, s) => rank[s.level] > rank[acc.level] ? s : acc);
+  return { dwell, drop, rise, overall: worst };
 }
 
 function renderWeather() {
   const w = currentWeather;
   if (!w) return;
-  const st = pressureStatus(w.pressure, w.trend);
-  const isAlert = w.trend < -3;
+  const risk = environmentalRisk(w);
+  const isAlert = risk.overall.level === 'red';
   const card = document.getElementById('weather-card');
   if (isAlert) card.classList.add('alert-card');
+  else card.classList.remove('alert-card');
 
-  // Update header pressure
+  // Update header with dwell-hours
   document.getElementById('pressure-summary').innerHTML =
-    `<div class="mono" style="font-size:18px;font-weight:600;color:${st.color}">${w.pressure} hPa</div>
-     <div style="font-size:11px;color:${st.color}">${st.icon} ${st.label}</div>`;
+    `<div class="mono" style="font-size:18px;font-weight:600;color:${risk.overall.color}">${w.pressureDwellHours || 0}h</div>
+     <div style="font-size:11px;color:${risk.overall.color}">low-pressure dwell</div>`;
 
   document.getElementById('weather-loading').style.display = 'none';
   document.getElementById('weather-error').style.display = 'none';
   const content = document.getElementById('weather-content');
   content.style.display = 'block';
-  renderMealCard(); // Re-evaluate compound risk with new pressure data
+  renderMealCard(); // Re-evaluate compound risk with new weather data
+
+  // Banner text for red axes
+  let bannerHtml = '';
+  if (isAlert) {
+    const msgs = [];
+    if (risk.dwell.level === 'red') msgs.push('Sustained low pressure — episode likely. Recommend heat therapy, stable meals, and minimizing exertion.');
+    if (risk.drop.level === 'red') msgs.push('Rapid temperature drop — episode likely. Recommend staying warm, heat therapy, and avoiding cold exposure.');
+    if (risk.rise.level === 'red') msgs.push('Rapid temperature rise — episode likely. Recommend staying cool, staying hydrated, and minimizing exertion.');
+    bannerHtml = `<div class="alert-banner">⚠ CONCERNING WINDOW — ${msgs.join(' ')}</div>`;
+  }
+
+  const dwellSub = `Below ${Math.round((w.pressureRecentPeak - 5) * 10) / 10} hPa (peak − 5)`;
   content.innerHTML = `
-    ${isAlert ? `<div class="alert-banner pulse">⚠ RAPID PRESSURE DROP — Episode risk elevated. Consider preemptive heat therapy.</div>` : ''}
+    ${bannerHtml}
     <div class="weather-grid">
-      <div class="weather-cell">
-        <div class="weather-label">Pressure</div>
-        <div class="weather-val" style="color:${st.color}">${w.pressure} <span style="font-size:12px">hPa</span></div>
-        <div class="weather-sub" style="color:${st.color}">${st.icon} ${st.label}</div>
+      <div class="weather-cell" style="border-left:4px solid ${risk.dwell.color}">
+        <div class="weather-label">Low-pressure dwell</div>
+        <div class="weather-val" style="color:${risk.dwell.color}">${w.pressureDwellHours || 0}h <span style="font-size:12px">/ 48h</span></div>
+        <div class="weather-sub">${dwellSub}</div>
       </div>
-      <div class="weather-cell">
-        <div class="weather-label">6hr Trend</div>
-        <div class="weather-val" style="color:${w.trend < -3 ? 'var(--danger)' : w.trend < 0 ? 'var(--warn)' : 'var(--good)'}">${w.trend > 0 ? '+' : ''}${w.trend}</div>
-        <div class="weather-sub" style="color:var(--dim)">hPa change</div>
-      </div>
-      <div class="weather-cell">
-        <div class="weather-label">Temp</div>
-        <div class="weather-val" style="color:${Math.abs(w.tempTrend||0) >= 10 ? 'var(--warn)' : 'inherit'}">${w.currentTemp}°F</div>
-        <div class="weather-sub" style="color:${Math.abs(w.tempTrend||0) >= 10 ? 'var(--warn)' : 'var(--dim)'}">
-          ${w.tempTrend != null ? (w.tempTrend > 0 ? '+' : '') + w.tempTrend + '°F 6hr' : (w.precip > 0 ? w.precip + 'mm' : 'No precip')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="weather-cell" style="border-left:4px solid ${risk.drop.color}">
+          <div class="weather-label">Temp drop</div>
+          <div class="weather-val" style="color:${risk.drop.color}">−${w.tempMaxDrop5h || 0}°F</div>
+          <div class="weather-sub">/ 5h window</div>
+        </div>
+        <div class="weather-cell" style="border-left:4px solid ${risk.rise.color}">
+          <div class="weather-label">Temp rise</div>
+          <div class="weather-val" style="color:${risk.rise.color}">+${w.tempMaxRise5h || 0}°F</div>
+          <div class="weather-sub">/ 5h window</div>
         </div>
       </div>
+    </div>
+    <div class="weather-reference">
+      <span>${w.pressure} hPa · ${w.currentTemp}°F</span>
+      <span>6h: ${w.trend>0?'+':''}${w.trend} hPa · ${w.tempTrend>0?'+':''}${w.tempTrend}°F</span>
     </div>
     <div class="weather-meta">
       📍 ${w.lat}, ${w.lon} · ${w.fetchedAt}
@@ -801,30 +843,43 @@ function toggleBtn(key, label, val, isOn, warnColor) {
     onclick="window._formToggleKey('${key}')">${label}</button>`;
 }
 
-function bodyMap(selected) {
-  const regions = [
-    {id:'head',label:'Head/Face',top:2,left:49},
-    {id:'neck',label:'Neck',top:13,left:49},
-    {id:'chest',label:'Chest',top:25,left:28},
-    {id:'upper_back',label:'Upper Back',top:25,left:70},
-    {id:'abdomen',label:'Abdomen',top:38,left:28},
-    {id:'lower_back',label:'Lower Back',top:38,left:70},
-    {id:'right_arm',label:'R. Arm',top:31,left:12},
-    {id:'left_arm',label:'L. Arm',top:31,left:86},
-    {id:'right_hip',label:'R. Hip',top:51,left:28},
-    {id:'left_hip',label:'L. Hip',top:51,left:70},
-    {id:'right_leg',label:'R. Leg',top:65,left:28},
-    {id:'left_leg',label:'L. Leg',top:65,left:70},
-    {id:'right_foot',label:'R. Foot',top:83,left:28},
-    {id:'left_foot',label:'L. Foot',top:83,left:70},
+function bodyMap(selected, activeColor = 'var(--accent)') {
+  const sections = [
+    { label: 'Head & Neck', rows: [
+      ['head','Head/Face'], ['neck','Neck'],
+      ['right_jaw','R. Jaw'], ['left_jaw','L. Jaw'],
+    ]},
+    { label: 'Torso', rows: [
+      ['chest','Chest'], ['upper_back','Upper Back'],
+      ['right_ribs','R. Ribs'], ['left_ribs','L. Ribs'],
+      ['abdomen','Abdomen'], ['lower_back','Lower Back'],
+    ]},
+    { label: 'Arms', rows: [
+      ['right_arm','R. Arm'], ['left_arm','L. Arm'],
+    ]},
+    { label: 'Lower Body', rows: [
+      ['right_hip','R. Hip'], ['left_hip','L. Hip'],
+      ['right_leg','R. Leg'], ['left_leg','L. Leg'],
+      ['right_foot','R. Foot'], ['left_foot','L. Foot'],
+    ]},
   ];
-  const btns = regions.map(r => {
-    const active = (selected || []).includes(r.id);
-    return `<button class="body-region ${active ? 'active' : ''}"
-      style="top:${r.top}%;left:${r.left}%"
-      onclick="window._bodyToggle('${r.id}')">${r.label}</button>`;
-  }).join('');
-  return `<div class="body-map"><div class="body-map-center"></div>${btns}</div>`;
+  const sel = selected || [];
+  return `<div class="body-grid">${sections.map(s => {
+    const pairs = [];
+    for (let i = 0; i < s.rows.length; i += 2) {
+      pairs.push(s.rows.slice(i, i + 2));
+    }
+    return `<div><div class="body-section-label">${s.label}</div>${pairs.map(pair =>
+      `<div class="body-row">${pair.map(([id, label]) => {
+        const on = sel.includes(id);
+        const style = on
+          ? `background:${activeColor}20;color:${activeColor};border-color:${activeColor};font-weight:600`
+          : '';
+        return `<button class="body-btn" style="${style}"
+          onclick="window._bodyToggle('${id}')">${label}</button>`;
+      }).join('')}</div>`
+    ).join('')}</div>`;
+  }).join('')}</div>`;
 }
 
 // ── EPISODE FORM ──────────────────────────────────────────────
@@ -1040,6 +1095,12 @@ async function saveEpisode() {
     const constructed = new Date(`${epData.entryDate}T${timeStr}`);
     epData.timestamp = isNaN(constructed) ? epData.timestamp : constructed.toISOString();
   }
+  // Snapshot last meal info for fasting context
+  const lastMeal = DB.get('meal:last');
+  if (lastMeal) {
+    epData.lastMealSize = lastMeal.mealSize || null;
+    epData.lastMealTimestamp = lastMeal.timestamp;
+  }
   // Prevent double-save
   const key = `entry:${new Date(epData.timestamp).getTime()}`;
   if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
@@ -1054,12 +1115,11 @@ let ciData = {};
 let ciStep = 0;
 
 const CI_STEPS = [
+  { title: 'Overnight Sleep', sub: '' },
+  { title: 'Overnight Events', sub: '' },
   { title: 'How Are You Communicating?', sub: 'Right now' },
-  { title: 'Pain Location', sub: 'Tap anywhere that hurts' },
-  { title: 'Exhaustion & Function', sub: '' },
-  { title: 'Sleep & Hormones', sub: '' },
-  { title: 'Today vs Arizona', sub: '' },
-  { title: 'Notes', sub: '' },
+  { title: 'Pain Location', sub: 'Tap anywhere that hurts right now' },
+  { title: "How's Today?", sub: '' },
 ];
 
 function startCheckin() {
@@ -1067,11 +1127,20 @@ function startCheckin() {
   ciData = {
     type: 'checkin', timestamp: ciNow.toISOString(),
     entryDate: localDateISO(ciNow),
+    // Sleep
+    sleep: null, sleepBedTime: null, sleepWakeTime: null, sleepAwakenings: null,
+    // Overnight
+    overnightEvents: [], morningStiffness: null,
+    // Communication
     communicationLevel: null, externalObservation: null,
-    bodyPain: [], sensations: {}, nap: null, napHours: '',
-    workCapacity: null, cancelledPlans: null, heatTherapy: [],
-    sleep: null, hormonalSymptoms: null, episodesSinceLast: '',
-    notes: '', weather: currentWeather || null, severity: null,
+    // Body
+    bodyPain: [],
+    // Tier 1 exposures
+    alcohol24h: { units: null, lastDrinkTime: null },
+    cyclePhaseProxy: { breastTender: false, moodShift: false, bloating: false, libido: null },
+    // Today
+    functionalToday: null,
+    notes: '', weather: currentWeather || null,
   };
   ciStep = 0;
   switchView('checkin');
@@ -1097,12 +1166,121 @@ function renderCiStep() {
 
   let html = '';
   switch(ciStep) {
-    case 0:
+    case 0: {
+      // Overnight Sleep + Alcohol
+      const alc = ciData.alcohol24h || { units: null, lastDrinkTime: null };
       html = `
         <div class="section">
           <span class="label">Date</span>
           <input type="date" value="${ciData.entryDate}" oninput="ciData.entryDate=this.value" style="width:100%">
         </div>
+        <div class="section">
+          <span class="label">What time did you get into bed?</span>
+          <input type="time" value="${ciData.sleepBedTime||''}" oninput="ciData.sleepBedTime=this.value||null" style="width:100%">
+        </div>
+        <div class="section">
+          <span class="label">What time did you get out of bed?</span>
+          <input type="time" value="${ciData.sleepWakeTime||''}" oninput="ciData.sleepWakeTime=this.value||null" style="width:100%">
+        </div>
+        <div class="section">
+          <span class="label">Times woken during the night</span>
+          <input type="number" min="0" placeholder="0" value="${ciData.sleepAwakenings!=null?ciData.sleepAwakenings:''}" oninput="ciData.sleepAwakenings=this.value?Number(this.value):null" style="width:100px">
+        </div>
+        <div class="section">
+          <span class="label">Sleep quality</span>
+          <div class="choices">
+            ${[{value:'good',label:'Restorative'},{value:'ok',label:'Somewhat'},{value:'poor',label:'Poor'},{value:'rls',label:'RLS bad'}].map(o=>{
+              const sel = ciData.sleep===o.value;
+              return `<button class="choice ${sel?'selected':''}" onclick="ciData.sleep='${o.value}';renderCiStep()">${o.label}</button>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <span class="label">Alcohol in last 24h</span>
+          <div class="choices">
+            ${[{value:'0',label:'None'},{value:'1',label:'1'},{value:'2',label:'2'},{value:'3+',label:'3+'}].map(o=>{
+              const sel = String(alc.units)===o.value;
+              return `<button class="choice ${sel?'selected':''}" onclick="ciData.alcohol24h.units='${o.value}';renderCiStep()">${o.label}</button>`;
+            }).join('')}
+          </div>
+          ${alc.units && alc.units !== '0' ? `
+          <div style="margin-top:8px">
+            <span class="label">Time of last drink (optional)</span>
+            <input type="time" value="${alc.lastDrinkTime||''}" oninput="ciData.alcohol24h.lastDrinkTime=this.value||null" style="width:100%">
+          </div>` : ''}
+        </div>`;
+      break;
+    }
+    case 1: {
+      // Overnight Events + Morning Stiffness + Cycle Phase Proxies
+      const evts = ciData.overnightEvents || [];
+      const overnightOpts = [
+        { value: 'muscle_twitching', label: 'Muscle twitching' },
+        { value: 'jaw_spasming', label: 'Jaw spasming / clenching' },
+        { value: 'intercostal_spasms', label: 'Intercostal / rib spasms' },
+        { value: 'woke_locked', label: "Woke up locked / couldn't move" },
+        { value: 'night_sweats', label: 'Night sweats' },
+        { value: 'breathing_trouble', label: 'Breathing trouble / choking sensation' },
+        { value: 'woke_in_pain', label: 'Woke in pain' },
+      ];
+      const nothingValue = 'nothing_noticed';
+      const hasNothing = evts.includes(nothingValue);
+      const stiffOpts = [
+        { value: 'none', label: 'None' },
+        { value: 'under_15', label: '<15 min' },
+        { value: '15_to_60', label: '15–60 min' },
+        { value: 'over_60', label: '1+ hours' },
+        { value: 'ongoing', label: 'Still stiff' },
+      ];
+      const cp = ciData.cyclePhaseProxy || {};
+      html = `
+        <div class="section">
+          <span class="label">Did anything happen overnight?</span>
+          <div class="choices">
+            ${overnightOpts.map(o => {
+              const sel = evts.includes(o.value);
+              return `<button class="choice ${sel?'selected':''}" onclick="(function(){
+                const a=ciData.overnightEvents;
+                const ni=a.indexOf('${nothingValue}');if(ni>-1)a.splice(ni,1);
+                const i=a.indexOf('${o.value}');if(i>-1)a.splice(i,1);else a.push('${o.value}');
+                renderCiStep()})()">${o.label}</button>`;
+            }).join('')}
+            <button class="choice ${hasNothing?'selected':''}" style="margin-top:8px;width:100%;font-style:italic" onclick="(function(){
+              ciData.overnightEvents=['${nothingValue}'];renderCiStep()})()">Slept through — nothing noticed</button>
+          </div>
+        </div>
+        <div class="section">
+          <span class="label">Morning stiffness</span>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:8px">How long until you loosened up?</div>
+          <div class="choices">
+            ${stiffOpts.map(o => {
+              const sel = ciData.morningStiffness === o.value;
+              return `<button class="choice ${sel?'selected':''}" onclick="ciData.morningStiffness='${o.value}';renderCiStep()">${o.label}</button>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <span class="label">Cycle phase symptoms today</span>
+          <div class="toggle-pair" style="flex-wrap:wrap;gap:8px">
+            <button class="toggle-btn ${cp.breastTender?'on':''}" onclick="ciData.cyclePhaseProxy.breastTender=!ciData.cyclePhaseProxy.breastTender;renderCiStep()">Breast tenderness</button>
+            <button class="toggle-btn ${cp.moodShift?'on':''}" onclick="ciData.cyclePhaseProxy.moodShift=!ciData.cyclePhaseProxy.moodShift;renderCiStep()">Mood / irritability shift</button>
+            <button class="toggle-btn ${cp.bloating?'on':''}" onclick="ciData.cyclePhaseProxy.bloating=!ciData.cyclePhaseProxy.bloating;renderCiStep()">Bloating / fluid retention</button>
+          </div>
+          <div style="margin-top:12px">
+            <span class="label">Libido</span>
+            <div class="choices">
+              ${[{value:'higher',label:'Higher than usual'},{value:'lower',label:'Lower than usual'},{value:'same',label:'About the same'}].map(o => {
+                const sel = cp.libido === o.value;
+                return `<button class="choice ${sel?'selected':''}" onclick="ciData.cyclePhaseProxy.libido='${o.value}';renderCiStep()">${o.label}</button>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
+      break;
+    }
+    case 2:
+      // Communication — same content as old case 0, without date input
+      html = `
         <div class="comm-options">
           ${['normal','quieter','shortened','brief'].map((v,i) => {
             const labels = ['Talking easily — normal back and forth','Quieter than usual — responding, not initiating','Shorter responses — harder to elaborate','Brief only — yes/no or less'];
@@ -1119,82 +1297,31 @@ function renderCiStep() {
           </div>
         </div>`;
       break;
-    case 1:
+    case 3:
+      // Body map — existing, subtitle updated in CI_STEPS
       html = bodyMap(ciData.bodyPain);
       break;
-    case 2:
+    case 4: {
+      // Functional-today scale + Notes
+      const todayOpts = [
+        { value: 'good', label: 'Good day — physically active, feeling strong', color: 'var(--good)' },
+        { value: 'ok', label: 'OK day — doing what I planned', color: 'var(--accent)' },
+        { value: 'scaled_back', label: 'Scaled back — picking what I can do, skipping the rest', color: 'var(--warn)' },
+        { value: 'bad', label: 'Bad day — mostly resting, can\'t do what I need', color: 'var(--danger)' },
+      ];
       html = `
-        <div class="section">
-          <span class="label">Did you nap today?</span>
-          <div class="toggle-pair">
-            ${['Yes','No'].map(o=>`<button class="toggle-btn ${ciData.nap===o?'on':''}" onclick="ciData.nap='${o}';renderCiStep()">${o}</button>`).join('')}
-          </div>
-          ${ciData.nap==='Yes' ? `<input type="number" placeholder="How many hours?" value="${ciData.napHours}" oninput="ciData.napHours=this.value" style="margin-top:8px;width:100%">` : ''}
+        <div class="sev-options">
+          ${todayOpts.map(o => {
+            const sel = ciData.functionalToday === o.value;
+            return `<button class="sev-btn" style="${sel?`background:${o.color}20;color:${o.color};border-color:${o.color};font-weight:600`:''}"
+              onclick="ciData.functionalToday='${o.value}';renderCiStep()">${o.label}</button>`;
+          }).join('')}
         </div>
-        <div class="section">
-          <span class="label">Work capacity today</span>
-          <div class="choices">
-            ${[{value:'full',label:'Full'},{value:'reduced',label:'Reduced'},{value:'minimal',label:'Minimal'},{value:'none',label:'Unable'}].map(o=>{
-              const sel = ciData.workCapacity===o.value;
-              return `<button class="choice ${sel?'selected':''}" onclick="ciData.workCapacity='${o.value}';renderCiStep()">${o.label}</button>`;
-            }).join('')}
-          </div>
-        </div>
-        <div class="section">
-          <span class="label">Cancelled plans?</span>
-          <div class="toggle-pair">
-            ${['Yes','No'].map(o=>`<button class="toggle-btn ${ciData.cancelledPlans===o?'on warn':''}" onclick="ciData.cancelledPlans='${o}';renderCiStep()">${o}</button>`).join('')}
-          </div>
-        </div>
-        <div class="section">
-          <span class="label">Heat therapy used</span>
-          <div class="choices">
-            ${[{value:'bath',label:'Hot bath'},{value:'sauna',label:'Sauna'},{value:'pad',label:'Heating pad'},{value:'shower',label:'Hot shower'}].map(o=>{
-              const sel = (ciData.heatTherapy||[]).includes(o.value);
-              return `<button class="choice ${sel?'selected':''}" onclick="(function(){const a=ciData.heatTherapy||[];const i=a.indexOf('${o.value}');if(i>-1)a.splice(i,1);else a.push('${o.value}');ciData.heatTherapy=a;renderCiStep()})()">${o.label}</button>`;
-            }).join('')}
-          </div>
+        <div class="section" style="margin-top:20px">
+          <textarea placeholder="Anything to note…" rows="4" oninput="ciData.notes=this.value">${ciData.notes}</textarea>
         </div>`;
       break;
-    case 3:
-      html = `
-        <div class="section">
-          <span class="label">Sleep quality last night</span>
-          <div class="choices">
-            ${[{value:'good',label:'Restorative'},{value:'ok',label:'Somewhat'},{value:'poor',label:'Poor'},{value:'rls',label:'RLS bad'}].map(o=>{
-              const sel = ciData.sleep===o.value;
-              return `<button class="choice ${sel?'selected':''}" onclick="ciData.sleep='${o.value}';renderCiStep()">${o.label}</button>`;
-            }).join('')}
-          </div>
-        </div>
-        <div class="section">
-          <span class="label">Perimenopausal symptoms?</span>
-          <div class="toggle-pair">
-            ${['Yes','No','Mild'].map(o=>`<button class="toggle-btn ${ciData.hormonalSymptoms===o?'on':''}" onclick="ciData.hormonalSymptoms='${o}';renderCiStep()">${o}</button>`).join('')}
-          </div>
-        </div>
-        <div class="section">
-          <span class="label">Episodes since last check-in</span>
-          <input type="number" placeholder="0" value="${ciData.episodesSinceLast}" oninput="ciData.episodesSinceLast=this.value" style="width:100px">
-        </div>`;
-      break;
-    case 4:
-      html = `<div class="sev-options">
-        ${[
-          {v:'similar',l:'Similar — feeling good',c:'var(--good)'},
-          {v:'somewhat',l:'Somewhat worse than baseline',c:'var(--accent)'},
-          {v:'much_worse',l:'Much worse',c:'var(--warn)'},
-          {v:'far_away',l:'Arizona feels very far away',c:'var(--danger)'},
-        ].map(o=>{
-          const sel = ciData.severity===o.v;
-          return `<button class="sev-btn" style="${sel?`background:${o.c}20;color:${o.c};border-color:${o.c};font-weight:600`:''}"
-            onclick="ciData.severity='${o.v}';renderCiStep()">${o.l}</button>`;
-        }).join('')}
-      </div>`;
-      break;
-    case 5:
-      html = `<textarea placeholder="Anything to note today…" rows="6" oninput="ciData.notes=this.value">${ciData.notes}</textarea>`;
-      break;
+    }
   }
 
   document.getElementById('ci-content').innerHTML = html;
@@ -1213,6 +1340,14 @@ function saveCheckin() {
     const timeStr = new Date().toTimeString().slice(0,5);
     const constructed = new Date(`${ciData.entryDate}T${timeStr}`);
     ciData.timestamp = isNaN(constructed) ? ciData.timestamp : constructed.toISOString();
+  }
+  // Compute sleepHours from bed/wake times
+  if (ciData.sleepBedTime && ciData.sleepWakeTime) {
+    const [bh, bm] = ciData.sleepBedTime.split(':').map(Number);
+    const [wh, wm] = ciData.sleepWakeTime.split(':').map(Number);
+    let mins = (wh * 60 + wm) - (bh * 60 + bm);
+    if (mins < 0) mins += 1440; // crossed midnight
+    ciData.sleepHours = Math.round(mins / 6) / 10; // one decimal
   }
   const key = `entry:${new Date(ciData.timestamp).getTime()}`;
   if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
@@ -1234,24 +1369,35 @@ function renderLog() {
     return;
   }
   const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
+  const functionalColors = { good:'var(--good)', ok:'var(--accent)', scaled_back:'var(--warn)', bad:'var(--danger)' };
+  const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
   const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
   el.innerHTML = entries.map(e => {
     const d = new Date(e.timestamp);
     const isEp = e.type === 'episode';
-    const borderColor = sevColors[e.severity] || (isEp ? 'var(--danger)' : 'var(--accent)');
+    const isCi = e.type === 'checkin';
+    // Check-in border: prefer functionalToday (new), fall back to severity (legacy)
+    const borderColor = isEp
+      ? (sevColors[e.severity] || 'var(--danger)')
+      : (functionalColors[e.functionalToday] || sevColors[e.severity] || 'var(--accent)');
     const chips = [
       e.communicationLevel ? `<span class="entry-chip" style="color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : '',
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       e.weather?.pressure ? `<span class="entry-chip mono">${e.weather.pressure}hPa (${e.weather.trend>0?'+':''}${e.weather.trend})</span>` : '',
+      isCi && e.sleepHours != null ? `<span class="entry-chip">${e.sleepHours}h sleep</span>` : '',
     ].filter(Boolean).join('');
+    // Severity display: functionalToday for new check-ins, severity for legacy
+    const sevKey = isCi ? (e.functionalToday || e.severity) : e.severity;
+    const sevLabel = isCi ? (functionalLabels[e.functionalToday] || (e.severity ? e.severity.replace(/_/g,' ') : '')) : (e.severity ? e.severity.replace(/_/g,' ') : '');
+    const sevColor = isCi ? (functionalColors[e.functionalToday] || sevColors[e.severity] || 'var(--mid)') : (sevColors[e.severity] || 'var(--mid)');
     return `<div class="entry-card" style="border-left-color:${borderColor}">
       <div class="entry-header">
         <div>
           <div class="entry-type" style="color:${isEp?'var(--danger)':'var(--accent)'}">${isEp?'Episode':'Check-in'}</div>
           <div class="entry-time">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
         </div>
-        ${e.severity ? `<span style="font-size:12px;color:${sevColors[e.severity]||'var(--mid)'};font-weight:600">${e.severity.replace(/_/g,' ')}</span>` : ''}
+        ${sevLabel ? `<span style="font-size:12px;color:${sevColor};font-weight:600">${sevLabel}</span>` : ''}
       </div>
       <div class="entry-chips">${chips}</div>
       ${e.notes ? `<div class="entry-notes">${e.notes}</div>` : ''}
@@ -1324,9 +1470,14 @@ function exportReport() {
     if (e.externalObservation) r += `  Observed by others as: ${e.externalObservation}\n`;
     if (e.severity) r += `  Severity vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
     if (e.weather?.pressure) r += `  Barometric pressure: ${e.weather.pressure} hPa (6hr trend: ${e.weather.trend>0?'+':''}${e.weather.trend})\n`;
-    if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F\n`;
+    if (e.weather?.pressureDwellHours != null) r += `  Pressure dwell: ${e.weather.pressureDwellHours}h of 48 below ${e.weather.pressureRecentPeak - 5} hPa (peak − 5)\n`;
+    if (e.weather?.tempMaxDrop5h != null) r += `  Max 5h temp drop: ${e.weather.tempMaxDrop5h}°F · Max 5h temp rise: ${e.weather.tempMaxRise5h}°F\n`;
+    if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F (6hr trend: ${(e.weather.tempTrend>0?'+':'')}${e.weather.tempTrend}°F)\n`;
     if (e.triggers?.length) r += `  Triggers: ${e.triggers.join(', ')}\n`;
-    if (e.fastedHours) r += `  Hours fasted: ${e.fastedHours}\n`;
+    if (e.fastedHours) {
+      const fLine = e.lastMealSize ? `  Hours fasted: ${e.fastedHours} (last: ${mealSizeLabels[e.lastMealSize] || e.lastMealSize})\n` : `  Hours fasted: ${e.fastedHours}\n`;
+      r += fLine;
+    }
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
     if (e.sensations && Object.keys(e.sensations).length) {
       Object.entries(e.sensations).forEach(([region, descs]) => {
@@ -1336,18 +1487,53 @@ function exportReport() {
     if (e.notes) r += `  Notes: ${e.notes}\n`;
   });
 
-  r += `\nDAILY CHECK-INS\n${'─'.repeat(30)}\n`;
+  const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
+  const stiffnessLabels = { none:'None', under_15:'<15 min', '15_to_60':'15-60 min', over_60:'1+ hours', ongoing:'Still stiff' };
+  const overnightLabels = { muscle_twitching:'Muscle twitching', jaw_spasming:'Jaw spasming/clenching', intercostal_spasms:'Intercostal/rib spasms', woke_locked:'Woke up locked', night_sweats:'Night sweats', breathing_trouble:'Breathing trouble', woke_in_pain:'Woke in pain', nothing_noticed:'Nothing noticed' };
+
+  r += `\nMORNING CHECK-INS\n${'─'.repeat(30)}\n`;
   cis.forEach(e => {
     const d = new Date(e.timestamp);
     r += `\n${d.toLocaleDateString()}\n`;
+    // Sleep
+    if (e.sleep) r += `  Sleep quality: ${e.sleep}\n`;
+    if (e.sleepHours != null) r += `  Sleep hours: ${e.sleepHours}\n`;
+    if (e.sleepBedTime) r += `  Bed time: ${e.sleepBedTime}\n`;
+    if (e.sleepWakeTime) r += `  Wake time: ${e.sleepWakeTime}\n`;
+    if (e.sleepAwakenings != null) r += `  Awakenings: ${e.sleepAwakenings}\n`;
+    // Overnight events
+    if (e.overnightEvents?.length) r += `  Overnight: ${e.overnightEvents.map(v => overnightLabels[v]||v).join(', ')}\n`;
+    if (e.morningStiffness && e.morningStiffness !== 'none') r += `  Morning stiffness: ${stiffnessLabels[e.morningStiffness]||e.morningStiffness}\n`;
+    // Communication
     if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
+    // Body
+    if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
+    // Alcohol
+    if (e.alcohol24h?.units && e.alcohol24h.units !== '0') {
+      r += `  Alcohol (24h): ${e.alcohol24h.units} units`;
+      if (e.alcohol24h.lastDrinkTime) r += ` (last drink: ${e.alcohol24h.lastDrinkTime})`;
+      r += '\n';
+    }
+    // Cycle proxies
+    const cp = e.cyclePhaseProxy;
+    if (cp) {
+      const flags = [];
+      if (cp.breastTender) flags.push('breast tenderness');
+      if (cp.moodShift) flags.push('mood/irritability shift');
+      if (cp.bloating) flags.push('bloating');
+      if (cp.libido && cp.libido !== 'same') flags.push(`libido ${cp.libido}`);
+      if (flags.length) r += `  Cycle proxies: ${flags.join(', ')}\n`;
+    }
+    // Functional today (new) or Arizona severity (legacy)
+    if (e.functionalToday) r += `  Today: ${functionalLabels[e.functionalToday]||e.functionalToday}\n`;
+    else if (e.severity) r += `  Overall vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
+    // Legacy fields — still print if present on old entries
     if (e.nap) r += `  Nap: ${e.nap}${e.napHours?' ('+e.napHours+'h)':''}\n`;
     if (e.workCapacity) r += `  Work capacity: ${e.workCapacity}\n`;
     if (e.cancelledPlans) r += `  Cancelled plans: ${e.cancelledPlans}\n`;
     if (e.heatTherapy?.length) r += `  Heat therapy: ${e.heatTherapy.join(', ')}\n`;
-    if (e.sleep) r += `  Sleep: ${e.sleep}\n`;
     if (e.hormonalSymptoms) r += `  Hormonal symptoms: ${e.hormonalSymptoms}\n`;
-    if (e.severity) r += `  Overall vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
+    // Notes
     if (e.notes) r += `  Notes: ${e.notes}\n`;
   });
 
@@ -1397,87 +1583,132 @@ function showToast(msg, color) {
 }
 
 // ── MEAL TRACKING ─────────────────────────────────────────────
-function logMeal() {
-  const meal = { timestamp: new Date().toISOString(), type: 'meal' };
-  DB.set('meal:last', meal);
-  showToast('Meal logged ✓');
+const localDateTimeISO = d => {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const mealSizeOpts = [
+  { value: 'drink', label: 'Coffee / drink only', icon: '☕' },
+  { value: 'snack', label: 'Small snack',         icon: '🥜' },
+  { value: 'light', label: 'Light meal',           icon: '🥗' },
+  { value: 'full',  label: 'Full meal',            icon: '🍽️' },
+];
+
+const mealSizeLabels = { drink: 'drink', snack: 'snack', light: 'light meal', full: 'full meal' };
+
+function logMeal(editExisting) {
+  const existing = editExisting ? DB.get('meal:last') : null;
+  const prefill = existing ? new Date(existing.timestamp) : new Date();
+  const prefillSize = existing?.mealSize || null;
+
+  const el = document.getElementById('meal-card');
+  el.innerHTML = `<div class="meal-card warn" style="flex-direction:column;align-items:stretch">
+    <div style="font-size:14px;font-weight:600;margin-bottom:8px">${editExisting ? 'Edit meal log' : 'What did you have?'}</div>
+    <div class="comm-options" id="meal-size-btns">
+      ${mealSizeOpts.map(o => {
+        const sel = prefillSize === o.value;
+        return `<button class="comm-btn" style="${sel ? 'background:var(--good)20;color:var(--good);border-color:var(--good);font-weight:600' : ''}"
+          onclick="document.querySelectorAll('#meal-size-btns .comm-btn').forEach(b=>{b.style=''}); this.style='background:var(--good)20;color:var(--good);border-color:var(--good);font-weight:600'; document.getElementById('meal-picker').dataset.size='${o.value}'">${o.icon} ${o.label}</button>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:10px">
+      <label style="font-size:12px;color:var(--dim)">When did you eat?</label>
+      <input type="datetime-local" id="meal-time-input" value="${localDateTimeISO(prefill)}"
+        style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;margin-top:4px;font-family:inherit">
+    </div>
+    <div id="meal-picker" data-size="${prefillSize || ''}" style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn full" onclick="saveMeal()" style="flex:1">Save</button>
+      <button class="btn full" onclick="renderMealCard()" style="flex:0 0 auto;background:var(--surface);color:var(--dim);border:1px solid var(--border)">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function saveMeal() {
+  const picker = document.getElementById('meal-picker');
+  const size = picker?.dataset.size;
+  if (!size) { showToast('Pick a size first', 'var(--warn)'); return; }
+
+  const timeInput = document.getElementById('meal-time-input');
+  const ts = timeInput ? new Date(timeInput.value) : new Date();
+  const now = new Date();
+
+  // Guardrails
+  if (ts > new Date(now.getTime() + 60000)) { showToast('Time cannot be in the future', 'var(--warn)'); return; }
+  if ((now - ts) > 86400000) { showToast('Time cannot be more than 24h ago', 'var(--warn)'); return; }
+
+  if (size === 'drink') {
+    // Drink doesn't reset fasting clock
+    DB.set('meal:last_drink', { timestamp: ts.toISOString(), type: 'meal', mealSize: 'drink' });
+    showToast('Drink logged ✓');
+  } else {
+    const existing = DB.get('meal:last') || {};
+    DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+    showToast('Meal logged ✓');
+  }
   renderMealCard();
 }
 
-function getMealSuggestion(hoursElapsed) {
+function getMealSuggestion(hoursElapsed, mealSize) {
   const hour = new Date().getHours();
-  // Time of day categories
   const isMorning = hour >= 6 && hour < 12;
   const isMidday = hour >= 12 && hour < 16;
   const isAfternoon = hour >= 16 && hour < 20;
   const isEvening = hour >= 20 || hour < 6;
+  const tod = isMorning ? 'morning' : isMidday ? 'midday' : isAfternoon ? 'afternoon' : 'evening';
 
-  if (hoursElapsed < 4) return null; // Not needed yet
+  // Size-based thresholds
+  const warnAt = mealSize === 'snack' ? 2.5 : mealSize === 'full' ? 5 : 4;
+  const dangerAt = mealSize === 'snack' ? 4 : mealSize === 'full' ? 7 : 5;
+  const severeAt = mealSize === 'snack' ? 5.5 : mealSize === 'full' ? 8 : 7;
+  const sizeNote = mealSize ? ` since your last ${mealSizeLabels[mealSize] || 'meal'}` : '';
 
-  // Compound risk: pressure dropping AND fasting 4+ hours
-  const pressureFalling = currentWeather && currentWeather.trend < -1.5;
-  const isCompound = pressureFalling && hoursElapsed >= 4;
+  if (hoursElapsed < warnAt) return null;
 
-  if (isCompound) {
+  // Compound risk: any environmental axis amber/red AND fasting past warn threshold
+  const inConcerningWindow = currentWeather && environmentalRisk(currentWeather).overall.level !== 'green';
+
+  if (inConcerningWindow) {
     return {
       level: 'compound',
       icon: '⚠️',
       title: 'Eat now — multiple risk factors active',
-      sub: 'Falling pressure + ' + Math.round(hoursElapsed) + 'h fasted. Almonds alone are not enough right now.',
+      sub: 'Environmental risk elevated + ' + Math.round(hoursElapsed) + 'h fasted' + sizeNote + '. Almonds alone are not enough right now.',
       suggestion: 'You need protein + fat + a small carbohydrate together. Try: nut butter on a rice cake, hummus with vegetables, or yogurt with berries and nuts. This combination stabilizes blood glucose AND supports GABAergic tone.'
     };
   }
 
-  // Standard suggestions by time + hours elapsed
-  if (hoursElapsed >= 7) {
-    const suggestions = {
-      morning: 'Nut butter on a rice cake, or yogurt with berries and almonds. Your brain needs glucose + protein after this long.',
-      midday: 'More than a snack needed now — try hummus with vegetables and a rice cake, or a proper small meal if possible.',
-      afternoon: 'This is your highest-risk window. Eat something substantial: lentil soup, rice with beans, or nut butter with a banana.',
-      evening: 'Nut butter with a banana or a small bowl of oatmeal with nuts. Avoid anything sugary before sleep.'
-    };
+  const suggestions = {
+    morning: { severe: 'Nut butter on a rice cake, or yogurt with berries and almonds. Your brain needs glucose + protein after this long.', danger: 'A handful of almonds plus a piece of fruit (not almonds alone). The fruit adds glucose your brain needs.', warn: 'A handful of almonds plus a piece of fruit. Protein + fat + glucose together.' },
+    midday:  { severe: 'More than a snack needed now — try hummus with vegetables and a rice cake, or a proper small meal if possible.', danger: 'Almonds + dried fruit, or hummus with a few crackers. Pair protein/fat with a small carbohydrate.', warn: 'Almonds with a few dates or crackers work well here.' },
+    afternoon: { severe: 'This is your highest-risk window. Eat something substantial: lentil soup, rice with beans, or nut butter with a banana.', danger: 'Nut butter with apple slices, or yogurt with nuts. This window is your highest episode risk time — do not skip this.', warn: 'Snack now before symptoms build. Nut butter on a rice cake, or hummus with vegetables.' },
+    evening: { severe: 'Nut butter with a banana or a small bowl of oatmeal with nuts. Avoid anything sugary before sleep.', danger: 'Pumpkin seeds with a few dates, or a small amount of yogurt. Light protein + small carb before sleep.', warn: 'Something small before the evening: nuts with a little dried fruit, or a small yogurt.' },
+  };
+
+  if (hoursElapsed >= severeAt) {
     return {
-      level: 'danger',
-      icon: '🔴',
-      title: Math.round(hoursElapsed) + ' hours since eating — eat now',
+      level: 'danger', icon: '🔴',
+      title: Math.round(hoursElapsed) + 'h' + sizeNote + ' — eat now',
       sub: 'Extended fasting significantly affects your neurological stability.',
-      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
+      suggestion: suggestions[tod].severe
     };
   }
 
-  if (hoursElapsed >= 5) {
-    const suggestions = {
-      morning: 'A handful of almonds plus a piece of fruit (not almonds alone). The fruit adds glucose your brain needs.',
-      midday: 'Almonds + dried fruit, or hummus with a few crackers. Pair protein/fat with a small carbohydrate.',
-      afternoon: 'Nut butter with apple slices, or yogurt with nuts. This window is your highest episode risk time — do not skip this.',
-      evening: 'Pumpkin seeds with a few dates, or a small amount of yogurt. Light protein + small carb before sleep.'
-    };
+  if (hoursElapsed >= dangerAt) {
     return {
-      level: 'danger',
-      icon: '🟠',
-      title: Math.round(hoursElapsed) + 'h fasted — eat something',
+      level: 'danger', icon: '🟠',
+      title: Math.round(hoursElapsed) + 'h' + sizeNote + ' — eat something',
       sub: 'Blood glucose low. This affects GABA and autonomic stability.',
-      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
+      suggestion: suggestions[tod].danger
     };
   }
 
-  if (hoursElapsed >= 4) {
-    const suggestions = {
-      morning: 'A handful of almonds plus a piece of fruit. Protein + fat + glucose together.',
-      midday: 'Almonds with a few dates or crackers work well here.',
-      afternoon: 'Snack now before symptoms build. Nut butter on a rice cake, or hummus with vegetables.',
-      evening: 'Something small before the evening: nuts with a little dried fruit, or a small yogurt.'
-    };
-    return {
-      level: 'warn',
-      icon: '🟡',
-      title: Math.round(hoursElapsed) + 'h since eating — consider a snack',
-      sub: 'Getting into the window where fasting affects neurological stability.',
-      suggestion: isMorning ? suggestions.morning : isMidday ? suggestions.midday : isAfternoon ? suggestions.afternoon : suggestions.evening
-    };
-  }
-
-  return null;
+  return {
+    level: 'warn', icon: '🟡',
+    title: Math.round(hoursElapsed) + 'h' + sizeNote + ' — consider a snack',
+    sub: 'Getting into the window where fasting affects neurological stability.',
+    suggestion: suggestions[tod].warn
+  };
 }
 
 function renderMealCard() {
@@ -1488,7 +1719,6 @@ function renderMealCard() {
   const now = new Date();
 
   if (!last) {
-    // No meal logged yet
     el.innerHTML = `<div class="meal-card warn">
       <span class="meal-icon">🍽️</span>
       <div class="meal-info">
@@ -1501,17 +1731,19 @@ function renderMealCard() {
   }
 
   const elapsed = (now - new Date(last.timestamp)) / 3600000;
-  const suggestion = getMealSuggestion(elapsed);
+  const size = last.mealSize;
+  const suggestion = getMealSuggestion(elapsed, size);
+  const sizeDisplay = size ? mealSizeLabels[size] || size : 'meal';
 
   if (!suggestion) {
-    // Recently ate — show timer, no alert
     const mins = Math.round(elapsed * 60);
     const display = elapsed < 1 ? mins + ' min ago' : Math.round(elapsed * 10) / 10 + 'h ago';
+    const warnAt = size === 'snack' ? 2.5 : size === 'full' ? 5 : 4;
     el.innerHTML = `<div class="meal-card ok">
       <span class="meal-icon">✅</span>
       <div class="meal-info">
-        <div class="meal-title" style="color:var(--good)">Last ate: ${display}</div>
-        <div class="meal-sub">Next check at 4 hours</div>
+        <div class="meal-title" style="color:var(--good)">Last ate: ${sizeDisplay}, ${display}</div>
+        <div class="meal-sub">Next check at ${warnAt} hours · <a href="#" onclick="event.preventDefault();logMeal(true)" style="color:var(--accent)">Edit</a></div>
       </div>
       <button class="meal-btn" onclick="logMeal()">I just ate</button>
     </div>`;
@@ -1522,7 +1754,7 @@ function renderMealCard() {
     <span class="meal-icon">${suggestion.icon}</span>
     <div class="meal-info">
       <div class="meal-title" style="color:${suggestion.level === 'compound' || suggestion.level === 'danger' ? 'var(--danger)' : 'var(--warn)'}">${suggestion.title}</div>
-      <div class="meal-sub">${suggestion.sub}</div>
+      <div class="meal-sub">${suggestion.sub} · <a href="#" onclick="event.preventDefault();logMeal(true)" style="color:var(--accent);font-size:11px">Edit time</a></div>
       <div class="meal-suggestion">${suggestion.suggestion}</div>
     </div>
   </div>

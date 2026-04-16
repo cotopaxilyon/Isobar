@@ -266,6 +266,24 @@ The Arizona comparison is not a whim — it is her only documented period of com
 
 ---
 
+## Repo Layout
+
+```
+/                  app files served by GitHub Pages
+  index.html       single-file PWA (UI + logic)
+  sw.js            service worker
+  manifest.json    PWA manifest
+  icon.svg         app icon
+  README.md        this file
+  DEPLOY.md        deployment notes
+  MEDICAL_PURPOSE.md  clinical rationale
+  ROADMAP.md       active roadmap
+/docs
+  /plans/          active plans + UPDATES.md backlog
+  /findings/       analyses of logged data
+  /archive/        shipped tickets, completed test plans
+```
+
 ## Repository
 `https://github.com/cotopaxilyon/Isobar`
 
