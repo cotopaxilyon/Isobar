@@ -1,4 +1,4 @@
-const CACHE = 'isobar-v2';
+const CACHE = 'isobar-v4';
 const ASSETS = ['/Isobar/', '/Isobar/index.html', '/Isobar/manifest.json', '/Isobar/icon.svg'];
 
 self.addEventListener('install', e => {

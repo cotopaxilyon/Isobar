@@ -891,7 +891,7 @@ const EP_STEPS = [
   { title: 'Prodrome', sub: 'What came before' },
   { title: 'Episode Pattern', sub: 'Limbs & sensations' },
   { title: 'How Are You Communicating?', sub: 'Primary severity indicator' },
-  { title: 'Triggers', sub: '' },
+  { title: 'What was going on today?', sub: 'Select anything that was present' },
   { title: 'Pain Location', sub: 'Tap all areas that hurt' },
   { title: 'Sensations', sub: 'What does pain feel like' },
   { title: 'Overall Severity', sub: 'Compared to Arizona' },
@@ -912,7 +912,7 @@ function startEpisode() {
     prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
     chestTight: false, cane: false,
     communicationLevel: null, externalObservation: null,
-    triggers: [], fastedHours: '', notes: '',
+    exposures: [], notes: '',
     weather: currentWeather || null, severity: null,
   };
   epStep = 0;
@@ -1019,10 +1019,9 @@ function renderEpStep() {
       window._formSet = v => { epData.communicationLevel = v; renderEpStep(); };
       break;
     case 4:
-      epData._lastArr = 'triggers';
-      const trigOpts = [
+      epData._lastArr = 'exposures';
+      const exposureOpts = [
         {value:'weather',label:'Weather / travel'},
-        {value:'fasting',label:'Fasting'},
         {value:'animal',label:'Animal exposure'},
         {value:'chemical',label:'Chemical / perfume'},
         {value:'new_env',label:'New environment'},
@@ -1032,13 +1031,28 @@ function renderEpStep() {
         {value:'hormonal',label:'Hormonal / cycle'},
         {value:'mold',label:'Mold / musty space'},
       ];
+      const epRefMs = (() => {
+        const t = epData.prodromeTime || epData.firstJerkTime;
+        if (!t) return Date.now();
+        const ms = new Date(`${epData.entryDate}T${t}`).getTime();
+        return isNaN(ms) ? Date.now() : ms;
+      })();
+      const epRefIso = new Date(epRefMs).toISOString();
+      const fastedMeal = findMealForEpisode(epRefIso);
+      const hoursFasted = fastedHoursFor(epRefIso);
+      const mealCaption = fastedMeal
+        ? `since ${mealSizeLabels[fastedMeal.mealSize] || 'meal'} at ${new Date(fastedMeal.timestamp).toLocaleString([], { weekday:'short', hour:'numeric', minute:'2-digit' })}`
+        : 'no meal logged before this episode';
       html = `
         <div class="section">
-          <div class="choices">${choices(trigOpts, epData.triggers, null, true)}</div>
+          <div class="choices">${choices(exposureOpts, epData.exposures, null, true)}</div>
         </div>
         <div class="section">
-          <span class="label">Hours since last meal</span>
-          <input type="number" placeholder="e.g. 7" value="${epData.fastedHours}" oninput="epData.fastedHours=this.value" style="width:100px">
+          <span class="label">Hours fasted at episode onset</span>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px">
+            <span class="mono" style="font-size:18px">${hoursFasted !== null ? hoursFasted + 'h' : '—'}</span>
+            <span style="font-size:12px;color:var(--dim)">${mealCaption}</span>
+          </div>
         </div>`;
       break;
     case 5:
@@ -1094,12 +1108,6 @@ async function saveEpisode() {
     const timeStr = epData.prodromeTime || epData.firstJerkTime || new Date().toTimeString().slice(0,5);
     const constructed = new Date(`${epData.entryDate}T${timeStr}`);
     epData.timestamp = isNaN(constructed) ? epData.timestamp : constructed.toISOString();
-  }
-  // Snapshot last meal info for fasting context
-  const lastMeal = DB.get('meal:last');
-  if (lastMeal) {
-    epData.lastMealSize = lastMeal.mealSize || null;
-    epData.lastMealTimestamp = lastMeal.timestamp;
   }
   // Prevent double-save
   const key = `entry:${new Date(epData.timestamp).getTime()}`;
@@ -1441,17 +1449,17 @@ function exportReport() {
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
 
-  const trigCount = {};
-  eps.forEach(e => (e.triggers||[]).forEach(t => { trigCount[t] = (trigCount[t]||0)+1; }));
-  const topTriggers = Object.entries(trigCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const expCount = {};
+  eps.forEach(e => (e.exposures||e.triggers||[]).forEach(t => { expCount[t] = (expCount[t]||0)+1; }));
+  const topExposures = Object.entries(expCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   let r = `SYMPTOM TRACKING REPORT\nGenerated: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
   r += `SUMMARY\nEpisodes: ${eps.length}  |  Check-ins: ${cis.length}  |  Days tracked: ${new Set(entries.map(e=>e.timestamp.slice(0,10))).size}\n`;
   if (entries.length) r += `Date range: ${new Date(entries[entries.length-1].timestamp).toLocaleDateString()} – ${new Date(entries[0].timestamp).toLocaleDateString()}\n`;
   r += '\n';
 
-  if (topTriggers.length) {
-    r += `TOP TRIGGERS\n${topTriggers.map(([t,c])=>`  ${t.replace(/_/g,' ')}: ${c}x`).join('\n')}\n\n`;
+  if (topExposures.length) {
+    r += `TOP EXPOSURES\n${topExposures.map(([t,c])=>`  ${t.replace(/_/g,' ')}: ${c}x`).join('\n')}\n\n`;
   }
 
   const sevLabels = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe (Arizona far away)' };
@@ -1473,9 +1481,15 @@ function exportReport() {
     if (e.weather?.pressureDwellHours != null) r += `  Pressure dwell: ${e.weather.pressureDwellHours}h of 48 below ${e.weather.pressureRecentPeak - 5} hPa (peak − 5)\n`;
     if (e.weather?.tempMaxDrop5h != null) r += `  Max 5h temp drop: ${e.weather.tempMaxDrop5h}°F · Max 5h temp rise: ${e.weather.tempMaxRise5h}°F\n`;
     if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F (6hr trend: ${(e.weather.tempTrend>0?'+':'')}${e.weather.tempTrend}°F)\n`;
-    if (e.triggers?.length) r += `  Triggers: ${e.triggers.join(', ')}\n`;
-    if (e.fastedHours) {
-      const fLine = e.lastMealSize ? `  Hours fasted: ${e.fastedHours} (last: ${mealSizeLabels[e.lastMealSize] || e.lastMealSize})\n` : `  Hours fasted: ${e.fastedHours}\n`;
+    const exposures = e.exposures || e.triggers || [];
+    if (exposures.length) r += `  Exposures: ${exposures.join(', ')}\n`;
+    // Compute fasted-hours live from meal history; fall back to legacy snapshot fields for pre-derived-model entries
+    const liveMeal = findMealForEpisode(e.timestamp);
+    const liveFasted = fastedHoursFor(e.timestamp);
+    const fastedDisplay = liveFasted !== null ? String(liveFasted) : (e.fastedHours || null);
+    const sizeDisplay = liveMeal ? liveMeal.mealSize : e.lastMealSize;
+    if (fastedDisplay) {
+      const fLine = sizeDisplay ? `  Hours fasted: ${fastedDisplay} (last: ${mealSizeLabels[sizeDisplay] || sizeDisplay})\n` : `  Hours fasted: ${fastedDisplay}\n`;
       r += fLine;
     }
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
@@ -1597,6 +1611,38 @@ const mealSizeOpts = [
 
 const mealSizeLabels = { drink: 'drink', snack: 'snack', light: 'light meal', full: 'full meal' };
 
+// One-time: seed meal:entry history from existing meal:last on first load after derived-model rollout
+function migrateMealsToHistory() {
+  if (DB.keys('meal:entry:').length > 0) return;
+  const last = DB.get('meal:last');
+  if (last && last.timestamp && last.mealSize && last.mealSize !== 'drink') {
+    const tsMs = new Date(last.timestamp).getTime();
+    if (!isNaN(tsMs)) DB.set(`meal:entry:${tsMs}`, { timestamp: last.timestamp, type: 'meal', mealSize: last.mealSize });
+  }
+}
+
+function findMealForEpisode(episodeTs) {
+  const epMs = new Date(episodeTs).getTime();
+  if (isNaN(epMs)) return null;
+  let best = null, bestMs = -Infinity;
+  for (const k of DB.keys('meal:entry:')) {
+    const m = DB.get(k);
+    if (!m || !m.timestamp) continue;
+    const mMs = new Date(m.timestamp).getTime();
+    if (isNaN(mMs) || mMs > epMs) continue;
+    if (mMs > bestMs) { best = m; bestMs = mMs; }
+  }
+  return best;
+}
+
+function fastedHoursFor(episodeTs) {
+  const meal = findMealForEpisode(episodeTs);
+  if (!meal) return null;
+  const epMs = new Date(episodeTs).getTime();
+  const mMs = new Date(meal.timestamp).getTime();
+  return Math.round((epMs - mMs) / 360000) / 10;
+}
+
 function logMeal(editExisting) {
   const existing = editExisting ? DB.get('meal:last') : null;
   const prefill = existing ? new Date(existing.timestamp) : new Date();
@@ -1617,7 +1663,7 @@ function logMeal(editExisting) {
       <input type="datetime-local" id="meal-time-input" value="${localDateTimeISO(prefill)}"
         style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;margin-top:4px;font-family:inherit">
     </div>
-    <div id="meal-picker" data-size="${prefillSize || ''}" style="display:flex;gap:8px;margin-top:10px">
+    <div id="meal-picker" data-size="${prefillSize || ''}"${existing && existing.timestamp ? ` data-editing-original-ts="${existing.timestamp}"` : ''} style="display:flex;gap:8px;margin-top:10px">
       <button class="btn full" onclick="saveMeal()" style="flex:1">Save</button>
       <button class="btn full" onclick="renderMealCard()" style="flex:0 0 auto;background:var(--surface);color:var(--dim);border:1px solid var(--border)">Cancel</button>
     </div>
@@ -1638,10 +1684,18 @@ function saveMeal() {
   if ((now - ts) > 86400000) { showToast('Time cannot be more than 24h ago', 'var(--warn)'); return; }
 
   if (size === 'drink') {
-    // Drink doesn't reset fasting clock
+    // Drink doesn't reset fasting clock — not added to meal:entry history
     DB.set('meal:last_drink', { timestamp: ts.toISOString(), type: 'meal', mealSize: 'drink' });
     showToast('Drink logged ✓');
   } else {
+    // Editing an existing meal: remove the prior meal:entry record so derived calcs see only one truth
+    const editingOldTs = picker?.dataset.editingOriginalTs;
+    if (editingOldTs) {
+      const oldMs = new Date(editingOldTs).getTime();
+      if (!isNaN(oldMs)) DB.remove(`meal:entry:${oldMs}`);
+    }
+    const newTsMs = ts.getTime();
+    DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
     const existing = DB.get('meal:last') || {};
     DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
     showToast('Meal logged ✓');
@@ -1770,16 +1824,17 @@ function startMealTimer() {
 
 // ── INIT ──────────────────────────────────────────────────────
 function initApp() {
+  migrateMealsToHistory();
   fetchWeather();
   updateStats();
   renderMealCard();
   startMealTimer();
 }
 
-// Unregister any stale service workers from previous versions
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then(regs => regs.forEach(r => r.unregister()));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.error('SW register failed', err));
+  });
 }
 
 // Start
