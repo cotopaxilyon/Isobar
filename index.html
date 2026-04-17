@@ -1797,7 +1797,7 @@ function renderMealCard() {
       <span class="meal-icon">✅</span>
       <div class="meal-info">
         <div class="meal-title" style="color:var(--good)">Last ate: ${sizeDisplay}, ${display}</div>
-        <div class="meal-sub">Next check at ${warnAt} hours · <a href="#" onclick="event.preventDefault();logMeal(true)" style="color:var(--accent)">Edit</a></div>
+        <div class="meal-sub">Flags after ${warnAt}h fasting · <a href="#" onclick="event.preventDefault();logMeal(true)" style="color:var(--accent)">Edit</a></div>
       </div>
       <button class="meal-btn" onclick="logMeal()">I just ate</button>
     </div>`;
