@@ -1,0 +1,9 @@
+# OS
+.DS_Store
+
+# IDE
+.idea/
+
+# Claude Code — personal overrides and runtime state
+.claude/settings.local.json
+.claude/qa-watcher-seen.json
