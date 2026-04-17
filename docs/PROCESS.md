@@ -60,6 +60,9 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 plan: docs/plans/PLAN-NNN-slug.md
 test: docs/testing/TEST-NNN-slug.md
+linear:                           # Linear issue identifiers
+  parent: ""                      # e.g. ISO-6 (main ticket)
+  test: ""                        # e.g. ISO-7 (test sub-issue, if TEST-NNN exists)
 depends-on: []
 supersedes: []
 shipped: ""
@@ -91,6 +94,81 @@ Commit: ...
 Date: ...
 UAT: .../... PASS
 ```
+
+## Checking off acceptance criteria
+
+A checked box on the ticket means **verified**, not **attempted**. Split them by who checks when:
+
+- **Agent, during build — check only code-verifiable items.** Renames, field changes, cache bumps, backward-compat fallbacks, label text, added/removed functions. Anything confirmable by reading the diff or grepping the source.
+- **Agent, when moving to `Ready for QA` — leave behavioral items unchecked.** Anything that requires running the app: interactions, calculated values, persistence across navigation, render output, export formatting. These belong to the test sub-issue.
+- **User, during QA — checks remaining items as each test case passes.** The last unchecked box is the gate for moving the parent from `QA in Testing` → `QA Pass`.
+
+Rule of thumb: if you can't verify it from the diff alone, don't check it. Shipped tickets should have every box checked; partially-checked boxes at ship time means QA was skipped.
+
+## Linear integration
+
+Every ticket in `docs/tickets/` has a matching issue in the **Isobar** team in Linear. The local `.md` is the source of truth for the spec; Linear is the workflow tracker that reflects where the work stands.
+
+### When a ticket is created
+
+1. Create the local `TICK-NNN-slug.md` first (full spec, acceptance criteria, agent context).
+2. Create the matching **parent Linear issue**:
+   - Title: `TICK-NNN: <title>` (matches the ticket's `title` field)
+   - Description: body of the local ticket (Summary → Acceptance Criteria → Agent Context → Implementation Notes)
+   - Team: `Isobar`
+   - Priority: mirror the local `priority` (urgent → 1, high → 2, normal → 3, low → 4)
+   - State: `Backlog` (default on create)
+3. If the ticket has a test file (`docs/testing/TEST-NNN-*.md`), create a **test sub-issue** under the parent:
+   - Title: `TEST-NNN: <title> — QA checklist`
+   - Description: body of the `TEST-NNN-*.md` (test cases + flat checkboxes)
+   - Team: `Isobar`
+   - `parentId`: the parent issue identifier (e.g. `ISO-6`)
+   - State: `Backlog` (stays here until parent reaches `Ready for QA`)
+4. Paste the returned Linear identifiers into the ticket's `linear:` frontmatter:
+   ```yaml
+   linear:
+     parent: ISO-6
+     test: ISO-7
+   ```
+5. Add the Linear URL (parent) to `BACKLOG.md` next to the ticket line so it's one click away.
+
+Tickets with inline test steps (< 5 steps, no separate `TEST-NNN` file) **don't** get a sub-issue — acceptance criteria on the parent is enough.
+
+### State transitions — agent-driven
+
+The agent moves the Linear **parent issue** as it works. The **test sub-issue** moves independently, lagging the parent by one state once QA begins.
+
+#### Parent issue
+
+| Local `status` | Parent state       | Trigger                                      |
+|----------------|--------------------|----------------------------------------------|
+| `pending`      | `Backlog` / `Todo` | Ticket exists, work hasn't started           |
+| `in-progress`  | `In Progress`      | Agent begins implementation                  |
+| `testing`      | `Ready for QA`     | Implementation is complete, awaiting UAT     |
+| (during UAT)   | `QA in Testing`    | User starts working through the test file   |
+| `shipped`      | `QA Pass` → `Done` | UAT passes; user closes the loop             |
+| `blocked`      | (leave as-is)      | Note blocker in Linear comment               |
+| `abandoned`    | `Canceled`         | Superseded or no longer needed               |
+
+#### Test sub-issue
+
+| When                                      | Sub-issue state |
+|-------------------------------------------|-----------------|
+| Parent is in `Backlog` or `In Progress`   | `Backlog`       |
+| Parent moves to `Ready for QA`            | `Ready for QA`  |
+| Parent moves to `QA in Testing`           | `QA in Testing` |
+| All test checkboxes pass                  | `QA Pass`       |
+| Any test fails                            | `QA Fail` (parent stays in `QA in Testing` until re-test) |
+| Parent ships (`Done`)                     | `Done`          |
+
+**Rule:** when the agent updates local `status`, it updates the parent Linear state in the same turn, and advances the test sub-issue per the table above. If the ticket has no `linear:` IDs, the agent creates the parent (and sub-issue, if a test file exists) first, then transitions.
+
+### What stays local vs. what goes to Linear
+
+- **Local:** full spec, plan links, test checklists, agent context, implementation notes, ship notes. These are the source of truth.
+- **Linear:** state, priority, a description snapshot at create time, and comments for workflow-level events (blockers, QA hand-off notes, fail reasons).
+
+Don't try to keep the Linear description in lockstep with every edit to the local ticket — the local file is canonical. Update the Linear description only on major scope changes.
 
 ## Status lifecycle
 
