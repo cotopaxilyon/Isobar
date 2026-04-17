@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "d=/Users/cotopaxilyon/WebstormProjects/Isobar/docs/qa-fail; t=$(grep -l 'status: *pending-review' \"$d\"/*.md 2>/dev/null | grep -v /README.md | xargs -n1 basename 2>/dev/null | sed 's/\\.md$//' | paste -sd, -); if [ -n \"$t\" ]; then jq -cn --arg t \"$t\" '{hookSpecificOutput:{hookEventName:\"UserPromptSubmit\",additionalContext:(\"⚠ Unreviewed QA Fail plans: \" + $t + \" — see docs/qa-fail/\")}}'; fi; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
