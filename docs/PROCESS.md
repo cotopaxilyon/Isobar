@@ -1,5 +1,7 @@
 # Isobar — Ticket & Tracking Process
 
+> Architectural rules the codebase must keep true live in [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## File structure
 
 ```

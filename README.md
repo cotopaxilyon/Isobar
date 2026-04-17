@@ -44,6 +44,11 @@ Standard numeric scales are unreliable for autistic adults with alexithymia and 
 
 ---
 
+## Architectural Invariants
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for rules the shell assets (`sw.js`, `manifest.json`, `index.html`) must keep true, with verification commands.
+
+---
+
 ## Current State of the App
 
 ### What's Built (v1.0)

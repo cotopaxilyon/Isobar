@@ -1,5 +1,7 @@
-const CACHE = 'isobar-v4';
-const ASSETS = ['/Isobar/', '/Isobar/index.html', '/Isobar/manifest.json', '/Isobar/icon.svg'];
+const CACHE = 'isobar-v5';
+// Relative paths — resolved against the SW script URL so the app is origin-agnostic.
+// See docs/ARCHITECTURE.md: no hardcoded base paths in shell assets.
+const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
