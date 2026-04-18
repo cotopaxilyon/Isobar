@@ -490,6 +490,9 @@
           <div><div class="setting-label">Export Data</div><div class="setting-sub">Download your full history</div></div>
           <button class="btn small" onclick="exportReport()">Export</button>
         </div>
+        <div class="setting-row" id="storage-indicator-row">
+          <div><div class="setting-label">Storage</div><div class="setting-sub" id="storage-indicator-sub">Checking…</div></div>
+        </div>
         <div class="setting-row" style="border:none">
           <div><div class="setting-label" style="color:var(--danger)">Clear All Data</div><div class="setting-sub">Permanently delete all entries</div></div>
           <button class="btn small danger" onclick="clearData()">Clear</button>
@@ -583,10 +586,24 @@ const DB = (() => {
     }
   }
 
+  async function requestStoragePersist() {
+    try {
+      if (!navigator.storage || typeof navigator.storage.persist !== 'function') {
+        if (idb) await idb.kv.put({ key: 'storage:persistGranted', value: false, updatedAt: Date.now() });
+        return;
+      }
+      const granted = await navigator.storage.persist();
+      if (idb) await idb.kv.put({ key: 'storage:persistGranted', value: !!granted, updatedAt: Date.now() });
+    } catch (e) {
+      console.error('[Isobar] storage.persist() failed', e);
+    }
+  }
+
   const ready = (async () => {
     idb = await openIDB();
     if (idb) await migrateFromLocalStorage();
   })();
+  ready.then(() => { if (idb) requestStoragePersist(); });
 
   return {
     ready,
@@ -1686,6 +1703,20 @@ function switchView(name) {
   document.getElementById('app').scrollTop = 0;
   if (name === 'log') renderLog();
   if (name === 'home') updateStats();
+  if (name === 'settings') renderStorageIndicator();
+}
+
+async function renderStorageIndicator() {
+  const sub = document.getElementById('storage-indicator-sub');
+  if (!sub) return;
+  const granted = await DB.get('storage:persistGranted');
+  if (granted) {
+    sub.textContent = 'Persistent';
+    sub.style.color = 'var(--good)';
+  } else {
+    sub.textContent = 'Best-effort — back up regularly';
+    sub.style.color = 'var(--warn)';
+  }
 }
 
 function goHome() {
