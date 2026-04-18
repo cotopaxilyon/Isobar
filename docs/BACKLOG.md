@@ -7,6 +7,12 @@
 
 ## Pending — by wave
 
+### Stage 0 — data persistence (blocks everything after wave 5)
+- **TICK-009** Dexie.js migration from localStorage (high) — [ISO-39](https://linear.app/isobar/issue/ISO-39)
+- **TICK-010** navigator.storage.persist() opt-in (high) — blocked by TICK-009 — [ISO-40](https://linear.app/isobar/issue/ISO-40)
+- **TICK-011** Weekly backup prompt + Web Share export (high) — blocked by TICK-009 — [ISO-41](https://linear.app/isobar/issue/ISO-41)
+- **TICK-012** JSON import for recovery (high) — blocked by TICK-009 — [ISO-42](https://linear.app/isobar/issue/ISO-42)
+
 ### Wave 6
 - **TICK-006** Episode phase restructure + exposure tier 1 (high)
 
