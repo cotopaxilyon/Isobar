@@ -630,6 +630,14 @@ const DB = (() => {
       }
       return items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     },
+    // All-keys delete with a PIN-preserving predicate. Exposed because `idb`
+    // is IIFE-private and Dexie short-circuits `where('key').startsWith('')`
+    // to an empty result, so clearData() cannot enumerate-then-remove.
+    // See ARCHITECTURE.md §2.
+    clearExceptPin: async () => {
+      await ready;
+      if (idb) { try { await idb.kv.where('key').notEqual('pin').delete(); } catch {} }
+    },
   };
 })();
 
@@ -1660,12 +1668,10 @@ async function exportReport() {
 
 async function clearData() {
   if (confirm('Permanently delete all logged entries? This cannot be undone.')) {
-    const allKeys = await DB.keys('');
-    for (const k of allKeys) {
-      if (k !== 'pin') await DB.remove(k);
-    }
+    await DB.clearExceptPin();
     Object.keys(localStorage).forEach(k => { if (k !== 'pin') localStorage.removeItem(k); });
     await updateStats();
+    await renderMealCard();
     showToast('Data cleared', 'var(--warn)');
   }
 }

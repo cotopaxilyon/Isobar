@@ -45,6 +45,38 @@ describe deployment, not behavior.
 
 ---
 
+## 2. `DB.keys(prefix)` is a prefix scan, not an all-keys dump
+
+**Rule.** Never call `DB.keys('')` (or any equivalent empty-prefix call) to
+enumerate every key in storage. When you need all-keys semantics — e.g. to
+wipe or export everything — go through Dexie directly
+(`idb.kv.where('key').notEqual(...).delete()`, `idb.kv.toCollection().primaryKeys()`,
+or `idb.kv.toArray()`).
+
+**Why.** Dexie's `WhereClause.startsWith('')` short-circuits to an empty
+collection as a guard against accidental full-table scans. `DB.keys(prefix)`
+is implemented as `idb.kv.where('key').startsWith(prefix).primaryKeys()`, so
+passing `''` silently returns `[]` instead of "every key." This drifted in
+across the ISO-39 localStorage → Dexie migration: the pre-migration `DB.keys('')`
+enumerated `Object.keys(localStorage)` and worked; the post-migration version
+does not. ISO-21's "Clear All Data" shipped on the old contract and became a
+no-op for IDB-resident keys (meal:last, entry:*) after ISO-39 landed. The
+localStorage fallback loop is what kept the symptom partially masked.
+
+**Verification.**
+
+```sh
+grep -n "DB\.keys(['\"]['\"])\|DB\.keys(\`\`)" index.html
+```
+
+Should return no matches. All callers of `DB.keys(...)` must pass a non-empty
+prefix (`'entry:'`, `'draft:'`, `'morning:'`, etc.).
+
+**Exceptions.** None. If you need every key, use Dexie directly and comment
+why you're bypassing `DB`.
+
+---
+
 ## How to add a new invariant
 
 1. The rule is one sentence at the top of its section. Imperative, testable.
