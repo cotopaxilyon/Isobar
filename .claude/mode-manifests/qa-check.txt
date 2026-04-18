@@ -5,6 +5,7 @@ Write
 Glob
 Grep
 WebFetch
+ToolSearch
 mcp__linear__list_teams
 mcp__linear__list_issues
 mcp__linear__list_issue_labels
