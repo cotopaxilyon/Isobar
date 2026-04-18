@@ -416,6 +416,17 @@
         </div>
       </div>
 
+      <!-- Backup prompt (weekly) -->
+      <div class="card" id="backup-card" style="display:none;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="min-width:0;flex:1">
+            <div class="setting-label" id="backup-card-title">Back up your data</div>
+            <div class="setting-sub" id="backup-card-sub"></div>
+          </div>
+          <div id="backup-card-actions" style="display:flex;gap:6px;flex-shrink:0"></div>
+        </div>
+      </div>
+
       <!-- Stats -->
       <div class="card">
         <div class="stats-grid">
@@ -654,6 +665,23 @@ const DB = (() => {
     clearExceptPin: async () => {
       await ready;
       if (idb) { try { await idb.kv.where('key').notEqual('pin').delete(); } catch {} }
+    },
+    exportAll: async () => {
+      await ready;
+      if (idb) {
+        try {
+          return (await idb.kv.toArray()).filter(r => r.key !== '__migrated_to_idb');
+        } catch { return []; }
+      }
+      const rows = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k === '__migrated_to_idb') continue;
+        let v = null;
+        try { v = JSON.parse(localStorage.getItem(k)); } catch {}
+        rows.push({ key: k, value: v, updatedAt: 0 });
+      }
+      return rows;
     },
   };
 })();
@@ -1537,6 +1565,7 @@ async function renderLog() {
 
 // ── STATS ─────────────────────────────────────────────────────
 async function updateStats() {
+  renderBackupCard();
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
@@ -1704,6 +1733,79 @@ function switchView(name) {
   if (name === 'log') renderLog();
   if (name === 'home') updateStats();
   if (name === 'settings') renderStorageIndicator();
+}
+
+const BACKUP_INTERVAL_MS = 7 * 86400000;
+const BACKUP_SNOOZE_MS = 86400000;
+
+async function renderBackupCard() {
+  const card = document.getElementById('backup-card');
+  if (!card) return;
+  const lastAt = await DB.get('backup:lastAt');
+  const snoozedUntil = await DB.get('backup:snoozedUntil');
+  const now = Date.now();
+  if (snoozedUntil && now < snoozedUntil) { card.style.display = 'none'; return; }
+  const elapsed = lastAt ? now - lastAt : Infinity;
+  if (elapsed <= BACKUP_INTERVAL_MS) { card.style.display = 'none'; return; }
+  const days = lastAt ? Math.floor(elapsed / 86400000) : null;
+  document.getElementById('backup-card-title').textContent = 'Back up your data';
+  document.getElementById('backup-card-sub').textContent = days
+    ? `${days} days since last backup`
+    : 'No backup yet';
+  document.getElementById('backup-card-actions').innerHTML =
+    '<button class="btn small secondary" onclick="snoozeBackup()">Later</button>' +
+    '<button class="btn small" onclick="triggerBackup()">Back up</button>';
+  card.style.display = 'block';
+}
+
+async function snoozeBackup() {
+  await DB.set('backup:snoozedUntil', Date.now() + BACKUP_SNOOZE_MS);
+  renderBackupCard();
+}
+
+async function triggerBackup() {
+  const rows = await DB.exportAll();
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    appVersion: 'isobar-v6',
+    rows,
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `isobar-backup-${date}.json`;
+  const blob = new Blob([json], { type: 'application/json' });
+  const file = new File([blob], filename, { type: 'application/json' });
+
+  let shareAttempted = false;
+  try {
+    if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+      shareAttempted = true;
+      await navigator.share({ files: [file], title: 'Isobar Backup' });
+    }
+  } catch (e) {
+    if (e && e.name !== 'AbortError') console.error('[Isobar] share failed', e);
+  }
+  if (!shareAttempted) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  document.getElementById('backup-card-title').textContent = 'Did it save?';
+  document.getElementById('backup-card-sub').textContent = 'Confirm only after you see it in Files / Downloads.';
+  document.getElementById('backup-card-actions').innerHTML =
+    '<button class="btn small secondary" onclick="renderBackupCard()">Not yet</button>' +
+    '<button class="btn small" onclick="confirmBackupSaved()">Done</button>';
+}
+
+async function confirmBackupSaved() {
+  await DB.set('backup:lastAt', Date.now());
+  await DB.remove('backup:snoozedUntil');
+  document.getElementById('backup-card').style.display = 'none';
+  showToast('Backup confirmed');
 }
 
 async function renderStorageIndicator() {
