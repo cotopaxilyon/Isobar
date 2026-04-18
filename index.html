@@ -501,6 +501,12 @@
           <div><div class="setting-label">Export Data</div><div class="setting-sub">Download your full history</div></div>
           <button class="btn small" onclick="exportReport()">Export</button>
         </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Import from JSON</div><div class="setting-sub">Restore from a backup file</div></div>
+          <button class="btn small secondary" onclick="document.getElementById('import-file').click()">Choose…</button>
+        </div>
+        <input type="file" id="import-file" accept="application/json" style="display:none" onchange="onImportFileChosen(event)">
+        <div id="import-panel" style="padding:0 14px 14px"></div>
         <div class="setting-row" id="storage-indicator-row">
           <div><div class="setting-label">Storage</div><div class="setting-sub" id="storage-indicator-sub">Checking…</div></div>
         </div>
@@ -682,6 +688,35 @@ const DB = (() => {
         rows.push({ key: k, value: v, updatedAt: 0 });
       }
       return rows;
+    },
+    replaceAll: async rows => {
+      await ready;
+      if (!idb) return false;
+      try {
+        await idb.transaction('rw', idb.kv, async () => {
+          await idb.kv.clear();
+          if (rows.length) await idb.kv.bulkPut(rows);
+          await idb.kv.put({ key: '__migrated_to_idb', value: 1, updatedAt: Date.now() });
+        });
+        return true;
+      } catch (e) { console.error('[Isobar] replaceAll failed', e); return false; }
+    },
+    mergeMissing: async rows => {
+      await ready;
+      if (!idb) return { added: 0, skipped: rows.length };
+      let added = 0, skipped = 0;
+      try {
+        await idb.transaction('rw', idb.kv, async () => {
+          const existing = new Set(await idb.kv.toCollection().primaryKeys());
+          const toAdd = [];
+          for (const r of rows) {
+            if (existing.has(r.key)) skipped++;
+            else { toAdd.push(r); added++; }
+          }
+          if (toAdd.length) await idb.kv.bulkPut(toAdd);
+        });
+      } catch (e) { console.error('[Isobar] mergeMissing failed', e); }
+      return { added, skipped };
     },
   };
 })();
@@ -1819,6 +1854,130 @@ async function renderStorageIndicator() {
     sub.textContent = 'Best-effort — back up regularly';
     sub.style.color = 'var(--warn)';
   }
+}
+
+// ── BACKUP IMPORT (TICK-012) ──────────────────────────────────
+let importStaged = null;
+
+function importPanelHTML(bodyHTML) {
+  return '<div class="card" style="margin-top:8px;padding:12px">' + bodyHTML + '</div>';
+}
+
+function renderImportError(msg) {
+  document.getElementById('import-panel').innerHTML = importPanelHTML(
+    '<div style="color:var(--danger);font-size:13px;font-weight:600">Import failed</div>' +
+    '<div style="color:var(--mid);font-size:13px;margin-top:4px">' + msg + '</div>' +
+    '<div style="margin-top:10px"><button class="btn small secondary" onclick="resetImportPanel()">Close</button></div>'
+  );
+}
+
+function resetImportPanel() {
+  importStaged = null;
+  document.getElementById('import-panel').innerHTML = '';
+  document.getElementById('import-file').value = '';
+}
+
+function countsByPrefix(rows) {
+  const c = { entry: 0, 'meal:entry': 0, pin: 0, other: 0 };
+  for (const r of rows) {
+    if (r.key === 'pin') c.pin++;
+    else if (r.key.startsWith('meal:entry:')) c['meal:entry']++;
+    else if (r.key.startsWith('entry:')) c.entry++;
+    else c.other++;
+  }
+  return c;
+}
+
+function payloadDateRange(rows) {
+  const stamps = rows.map(r => r.updatedAt).filter(n => typeof n === 'number' && n > 0);
+  if (!stamps.length) return null;
+  const min = new Date(Math.min(...stamps));
+  const max = new Date(Math.max(...stamps));
+  return min.toISOString().slice(0,10) + ' → ' + max.toISOString().slice(0,10);
+}
+
+async function onImportFileChosen(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  let text;
+  try { text = await file.text(); }
+  catch (e) { renderImportError('Could not read file.'); return; }
+  let payload;
+  try { payload = JSON.parse(text); }
+  catch (e) { renderImportError('File is not valid JSON.'); return; }
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.rows)) {
+    renderImportError('Not a recognized Isobar backup. Expected { version: 1, rows: [...] }.');
+    return;
+  }
+  for (const r of payload.rows) {
+    if (!r || typeof r.key !== 'string') { renderImportError('Backup contains a malformed row.'); return; }
+  }
+  importStaged = { payload, mode: null };
+  const counts = countsByPrefix(payload.rows);
+  const range = payloadDateRange(payload.rows);
+  const exportedAt = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : 'unknown';
+  document.getElementById('import-panel').innerHTML = importPanelHTML(
+    '<div class="setting-label">Backup preview</div>' +
+    '<div class="setting-sub" style="margin-top:4px">Exported ' + exportedAt + '</div>' +
+    '<div style="font-size:13px;color:var(--mid);margin-top:8px;line-height:1.6">' +
+      '<div>Entries: <strong>' + counts.entry + '</strong></div>' +
+      '<div>Meal entries: <strong>' + counts['meal:entry'] + '</strong></div>' +
+      '<div>PIN: <strong>' + (counts.pin ? 'included' : 'none') + '</strong></div>' +
+      '<div>Other keys: <strong>' + counts.other + '</strong></div>' +
+      (range ? '<div style="margin-top:4px">Row dates: ' + range + '</div>' : '') +
+    '</div>' +
+    '<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">' +
+      '<button class="btn small secondary" onclick="resetImportPanel()">Cancel</button>' +
+      '<button class="btn small" onclick="stageImportMode(\'merge\')">Merge</button>' +
+      '<button class="btn small danger" onclick="stageImportMode(\'replace\')">Replace</button>' +
+    '</div>'
+  );
+}
+
+function stageImportMode(mode) {
+  if (!importStaged) return;
+  importStaged.mode = mode;
+  const isReplace = mode === 'replace';
+  const title = isReplace ? 'Replace everything?' : 'Merge missing rows?';
+  const desc = isReplace
+    ? 'This will replace everything. You will lose anything logged since this backup was made. If the backup has a different PIN, you will be locked out until you enter it.'
+    : 'Rows that already exist on this device will be skipped. Nothing will be overwritten.';
+  document.getElementById('import-panel').innerHTML = importPanelHTML(
+    '<div class="setting-label"' + (isReplace ? ' style="color:var(--danger)"' : '') + '>' + title + '</div>' +
+    '<div class="setting-sub" style="margin-top:6px;line-height:1.6">' + desc + '</div>' +
+    '<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">' +
+      '<button class="btn small secondary" onclick="resetImportPanel()">Cancel</button>' +
+      '<button class="btn small ' + (isReplace ? 'danger' : '') + '" onclick="executeImport()">I understand</button>' +
+    '</div>'
+  );
+}
+
+async function executeImport() {
+  if (!importStaged || !importStaged.mode) return;
+  const { payload, mode } = importStaged;
+  const now = Date.now();
+  const rows = payload.rows.map(r => ({
+    key: r.key,
+    value: r.value,
+    updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : now,
+  }));
+  let summary;
+  if (mode === 'replace') {
+    const ok = await DB.replaceAll(rows);
+    if (!ok) { renderImportError('Import transaction failed. Data left unchanged.'); return; }
+    summary = 'Imported ' + rows.length + ' rows; existing data replaced.';
+  } else {
+    const { added, skipped } = await DB.mergeMissing(rows);
+    summary = 'Imported ' + added + ' rows; ' + skipped + ' skipped as duplicates.';
+  }
+  document.getElementById('import-panel').innerHTML = importPanelHTML(
+    '<div class="setting-label">Import complete</div>' +
+    '<div class="setting-sub" style="margin-top:4px">' + summary + '</div>' +
+    '<div style="margin-top:12px"><button class="btn small" onclick="resetImportPanel()">Close</button></div>'
+  );
+  importStaged = null;
+  document.getElementById('import-file').value = '';
+  await renderStorageIndicator();
 }
 
 function goHome() {
