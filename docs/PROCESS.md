@@ -41,9 +41,25 @@ TEST-NNN-kebab-slug.md    # test checklist
 
 Every discrete unit of work that changes `index.html` gets a ticket. Research, data analysis, and clinical findings stay in `docs/findings/` without a ticket number.
 
+**Ticket sizing — all four must hold:**
+- ≤ 1 focused day of work
+- ≤ 200 LOC changed (soft cap; cross with intent, not by accident)
+- ≤ 5 acceptance criteria
+- No internal phase / step sub-sections in the spec — if it needs phases, it's an epic
+
+There is no lower bound. A one-line rename is a valid ticket if it's the unit of work being shipped.
+
 ### What gets a plan
 
-Features that need design before implementation. Small changes (add a chip, rename a label) don't need a plan — the ticket's implementation notes are sufficient. If a plan already exists (e.g. `PLAN_morning_checkin.md`), rename it to match the ticket ID when the ticket is created.
+A `PLAN-NNN` doc represents an **epic**: work that doesn't fit a single ticket. Promote to an epic when **any** of these hold:
+- It decomposes into 2+ dependent tickets
+- It spans multiple work sessions
+- It has unresolved design questions that need to be answered before implementation can start
+- Total scope is approaching ~1 week of work (hard cap — split further if larger)
+
+Small changes (add a chip, rename a label) don't need a plan — the ticket's implementation notes are sufficient. If a plan already exists (e.g. `PLAN_morning_checkin.md`), rename it to match the ticket ID when the ticket is created.
+
+When a ticket grows past the sizing limits mid-build, stop and split it — either into multiple tickets or into a `PLAN-NNN` epic with child tickets. Don't quietly let a ticket become an epic.
 
 ### What gets a test file
 

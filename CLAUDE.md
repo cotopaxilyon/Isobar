@@ -4,9 +4,13 @@ This file is auto-loaded by Claude Code at the start of every session.
 Treat it as a table of contents, not a spec.
 
 ## Read these first
-- [`README.md`](README.md) — what the app is, who it's for, current state, design principles
+- [`README.md`](README.md) — what the app is, who it's for, current state, patient background
+- [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) — product tenets and patient invariants; consult before any design decision
 - [`docs/PROCESS.md`](docs/PROCESS.md) — ticket / plan / test workflow and Linear integration
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — invariants the codebase must keep true (with verification commands)
+
+## Before a PLAN goes to implementation
+Walk [`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md) against the plan doc. It's the product-level analogue of the architecture grep — a mechanical pass that catches the kind of issues that surfaced in the irritability-plan critical review (16 items).
 
 ## Where things live
 - `index.html` — the entire app (single-file PWA)
