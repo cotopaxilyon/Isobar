@@ -2,7 +2,15 @@
 description: Scan Linear for QA Pass/Fail tickets and act on them (on-demand replacement for the 5-min cron)
 ---
 
-Run one pass of the QA watcher logic:
+Run one pass of the QA watcher logic. Capability constraints from [`docs/plans/PLAN_injection_guardrails.md`](../../docs/plans/PLAN_injection_guardrails.md).
+
+0. **Activate mode (mandatory first step).** Run:
+
+   ```sh
+   printf 'qa-check\n%s\n' "$(date +%s)" > /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/active-mode
+   ```
+
+   This enables the per-mode tool manifest at `.claude/mode-manifests/qa-check.txt`. Tools not on that list will be denied for the rest of this session (file auto-expires after 2h).
 
 1. Query Linear (team Isobar) for tickets currently in status `QA Pass` or `QA Fail`.
 2. Load `.claude/qa-watcher-seen.json` to skip tickets already handled; update it after processing.

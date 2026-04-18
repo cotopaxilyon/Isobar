@@ -1,0 +1,15 @@
+Bash
+Read
+Edit
+Write
+Glob
+Grep
+WebFetch
+mcp__linear__list_teams
+mcp__linear__list_issues
+mcp__linear__list_issue_labels
+mcp__linear__list_issue_statuses
+mcp__linear__list_comments
+mcp__linear__get_issue
+mcp__linear__save_issue
+mcp__linear__save_comment

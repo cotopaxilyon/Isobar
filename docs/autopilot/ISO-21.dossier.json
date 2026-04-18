@@ -1,0 +1,147 @@
+{
+  "_meta": {
+    "kind": "autopilot-dossier",
+    "schema_version": 1,
+    "retrospective": true,
+    "note": "Worked example, written 2026-04-17 against an already-shipped fix (commit at index.html:1567). Used to pressure-test the dossier schema before wiring the gate into /autopilot."
+  },
+
+  "ticket_id": "ISO-21",
+  "ticket_url": "https://linear.app/isobar/issue/ISO-21/settings-clear-data-cleardata-does-not-remove-meallast-or-meallast",
+  "ticket_labels": ["agent-ok", "Bug"],
+  "picked_at": "2026-04-17T00:00:00Z",
+  "executor_model": "claude-opus-4-7[1m]",
+
+  "ac_verbatim": [
+    "After Settings > Clear Data is confirmed, no `meal:*` keys remain in localStorage (only `pin` may persist).",
+    "After Settings > Clear Data is confirmed, the home meal card no longer renders a fasting suggestion derived from prior meal state — it returns to the empty/initial state.",
+    "Confirm prompt copy unchanged unless the ticket says otherwise."
+  ],
+
+  "ac_paraphrase_check": "Verbatim quoted above; no paraphrase used in scope-gate or implementation reasoning. Any restatement (e.g. 'clear all per-run state') is annotation, not the AC.",
+
+  "scope_gate": [
+    {
+      "rule": "Label is Bug or Improvement, not Feature",
+      "evidence_cmd": "linear.get_issue ISO-21 -> labels",
+      "result": "['agent-ok', 'Bug']",
+      "verdict": "pass"
+    },
+    {
+      "rule": "No touch to docs/PRINCIPLES.md, docs/ARCHITECTURE.md, sw.js, manifest.json, cache version, or service-worker registration path",
+      "evidence_cmd": "Planned diff = index.html clearData() body only; no other files in files_to_touch",
+      "result": "0 forbidden files in scope",
+      "verdict": "pass"
+    },
+    {
+      "rule": "No localStorage shape change; no new tracked field added",
+      "evidence_cmd": "Fix removes additional keys at clear-time; does not add or alter any key written elsewhere. grep 'meal:last' index.html -> only setter and getter sites; sweep removes both.",
+      "result": "shape unchanged; deletion list expanded only",
+      "verdict": "pass",
+      "judgement_note": "Borderline: a 'wider sweep' could plausibly delete a key another caller relies on. Confirmed by enumerating writers (see adjacent_surfaces). All non-PIN writers expect their data to be wiped by Clear Data — that is the feature's contract."
+    },
+    {
+      "rule": "No new PLAN doc required",
+      "evidence_cmd": "Ticket includes a Suggested Fix block with a concrete code sample; AC is fully specified.",
+      "result": "PLAN not required",
+      "verdict": "pass"
+    },
+    {
+      "rule": "All ACs are code-verifiable (diff + grep + browser render)",
+      "evidence_cmd": "AC#1 = Object.keys(localStorage) assertion in browser; AC#2 = DOM snapshot of meal card after clear; AC#3 = grep confirm()",
+      "result": "all three verifiable",
+      "verdict": "pass"
+    },
+    {
+      "rule": "Fits one allowed change shape (copy / CSS-no-reflow / a11y-attribute / isolated bugfix with single root cause)",
+      "evidence_cmd": "Single function (clearData), single root cause (key allowlist too narrow), single code site (index.html:1565-1571)",
+      "result": "isolated bugfix",
+      "verdict": "pass"
+    }
+  ],
+
+  "files_to_touch": ["index.html"],
+
+  "adjacent_surfaces": [
+    {
+      "string_or_symbol": "clearData",
+      "grep_cmd": "grep -n 'clearData' index.html",
+      "all_call_sites": [
+        "index.html:495 (Settings button onclick)",
+        "index.html:1565 (function definition)"
+      ],
+      "all_changed": false,
+      "change_required_at": ["index.html:1567 only — function body"]
+    },
+    {
+      "string_or_symbol": "meal:last / meal:last_drink / any meal:* key",
+      "grep_cmd": "grep -n \"meal:last\\|meal:last_drink\" index.html",
+      "all_call_sites": ["all writers and readers in the meal-logging flow"],
+      "all_changed": false,
+      "change_required_at": ["none — fix removes via sweep, not by name"]
+    },
+    {
+      "string_or_symbol": "Object.keys(localStorage) sweep semantics",
+      "grep_cmd": "grep -n 'Object.keys(localStorage)' index.html",
+      "all_call_sites": ["index.html:1567 (post-fix)"],
+      "all_changed": true,
+      "change_required_at": ["this is the new code site"]
+    },
+    {
+      "string_or_symbol": "future key risk: draft:episode (named in ticket)",
+      "grep_cmd": "grep -n 'draft:episode' index.html",
+      "all_call_sites": ["none currently"],
+      "all_changed": null,
+      "note": "Sweep approach is forward-compatible with this future key. Recorded for transparency, not a current scope item."
+    }
+  ],
+
+  "root_cause_one_sentence": "clearData() iterated localStorage keys but only removed those starting with 'entry:', leaving meal:* (and any other future non-PIN keys) orphaned.",
+
+  "approach_chosen": "All-non-PIN sweep: Object.keys(localStorage).forEach(k => { if (k !== 'pin') localStorage.removeItem(k); })",
+  "approach_alternatives_considered": [
+    "Explicit removeItem('meal:last') + removeItem('meal:last_drink') — rejected: same bug pattern (allowlist), will rot when next key is added (e.g. draft:episode).",
+    "Prefix-based sweep removing entry:* + meal:* — rejected: same fragility, narrower benefit."
+  ],
+
+  "premortem_embarrassment": "If this autopilot run ships and the user reports it: most likely failure is an unintentionally-deleted key the user values. Specifically, if a future caller adds e.g. `prefs:theme` and assumes it survives Clear Data, the sweep will silently wipe it. Acceptable for v1 of the patient app (PIN is the only non-clearable contract today, per the ticket's own framing), but worth flagging in the Linear comment so the user knows the contract was implicitly broadened.",
+
+  "drift_tripwire_grep": [
+    {
+      "name": "no other files modified",
+      "cmd": "git diff --name-only HEAD -- ':!docs/autopilot/'",
+      "expected": "index.html"
+    },
+    {
+      "name": "no localStorage write/read sites added",
+      "cmd": "git diff -U0 index.html | grep -E '^\\+.*localStorage\\.(setItem|getItem)' | wc -l",
+      "expected": "0"
+    },
+    {
+      "name": "architecture invariant intact",
+      "cmd": "grep -n '/Isobar/' sw.js manifest.json index.html",
+      "expected": "(empty)"
+    }
+  ],
+
+  "self_qa_plan": {
+    "viewport": "375x812",
+    "url": "http://127.0.0.1:8765/",
+    "seed_localStorage": {
+      "pin": "\"1234\"",
+      "meal:last": "{\"timestamp\":\"2026-04-17T12:00:00Z\",\"mealSize\":\"light\"}",
+      "entry:test": "{\"foo\":\"bar\"}"
+    },
+    "steps": [
+      "Unlock with PIN.",
+      "Open Settings, tap Clear, confirm.",
+      "Assert: Object.keys(localStorage) === ['pin'].",
+      "Return to home, assert meal card shows 'Tap when you eat...' empty state, not a fasting suggestion."
+    ]
+  },
+
+  "confidence": 88,
+  "confidence_justification": "Single function, single root cause, ticket includes a working code sample, fix matches ticket's preferred approach. Confidence not 100 because the implicit contract change (sweep vs. allowlist) carries non-zero future risk that is not covered by current ACs.",
+
+  "decision": "proceed"
+}

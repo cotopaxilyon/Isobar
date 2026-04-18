@@ -1,0 +1,5 @@
+/Users/cotopaxilyon/WebstormProjects/Isobar/index.html
+/Users/cotopaxilyon/WebstormProjects/Isobar/docs/testing/TEST-*.md
+/Users/cotopaxilyon/WebstormProjects/Isobar/docs/autopilot/*.md
+/Users/cotopaxilyon/WebstormProjects/Isobar/docs/autopilot/*.json
+/Users/cotopaxilyon/WebstormProjects/Isobar/.claude/active-mode
