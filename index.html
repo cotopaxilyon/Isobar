@@ -1127,7 +1127,7 @@ const CI_STEPS = [
   { title: 'Overnight Events', sub: '' },
   { title: 'How Are You Communicating?', sub: 'Right now' },
   { title: 'Pain Location', sub: 'Tap anywhere that hurts right now' },
-  { title: "How's Today?", sub: '' },
+  { title: 'How are you starting today?', sub: '' },
 ];
 
 function startCheckin() {
@@ -1312,10 +1312,10 @@ function renderCiStep() {
     case 4: {
       // Functional-today scale + Notes
       const todayOpts = [
-        { value: 'good', label: 'Good day — physically active, feeling strong', color: 'var(--good)' },
-        { value: 'ok', label: 'OK day — doing what I planned', color: 'var(--accent)' },
-        { value: 'scaled_back', label: 'Scaled back — picking what I can do, skipping the rest', color: 'var(--warn)' },
-        { value: 'bad', label: 'Bad day — mostly resting, can\'t do what I need', color: 'var(--danger)' },
+        { value: 'good', label: 'Strong — ready for my usual day', color: 'var(--good)' },
+        { value: 'ok', label: 'OK — I can do what I planned', color: 'var(--accent)' },
+        { value: 'scaled_back', label: 'Scaled back — I\'ll need to choose what to do', color: 'var(--warn)' },
+        { value: 'bad', label: 'Bad — I need to rest today', color: 'var(--danger)' },
       ];
       html = `
         <div class="sev-options">
