@@ -1,7 +1,7 @@
-const CACHE = 'isobar-v5';
+const CACHE = 'isobar-v6';
 // Relative paths — resolved against the SW script URL so the app is origin-agnostic.
 // See docs/ARCHITECTURE.md: no hardcoded base paths in shell assets.
-const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
+const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './vendor/dexie.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

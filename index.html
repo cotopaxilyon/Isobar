@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#0a0e14">
 <title>Isobar</title>
 <link rel="manifest" href="manifest.json">
+<script src="vendor/dexie.min.js"></script>
 <style>
   /* fonts loaded locally */
   :root {
@@ -524,17 +525,113 @@
 
 <script>
 // ── STORAGE ──────────────────────────────────────────────────
-const DB = {
-  get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
-  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
-  remove: k => localStorage.removeItem(k),
-  keys: prefix => Object.keys(localStorage).filter(k => k.startsWith(prefix)),
-  allEntries: () => {
-    const keys = DB.keys('entry:');
-    return keys.map(k => DB.get(k)).filter(Boolean)
-      .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+// IndexedDB via Dexie, with a one-shot boot migration from localStorage and
+// a localStorage fallback if db.open() throws. Callers must await every DB.*.
+// Contract preserved: single key/value surface; prefix scans map 1:1 to startsWith.
+const DB = (() => {
+  let idb = null;
+  let openFailed = false;
+
+  function showFallbackBanner() {
+    if (document.getElementById('idb-fallback-banner')) return;
+    const run = () => {
+      if (!document.body) { document.addEventListener('DOMContentLoaded', run, { once: true }); return; }
+      const b = document.createElement('div');
+      b.id = 'idb-fallback-banner';
+      b.textContent = 'Running in fallback storage mode — export a backup soon.';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--warn);color:#000;padding:8px 12px;font-size:12px;text-align:center;font-weight:600';
+      document.body.appendChild(b);
+    };
+    run();
   }
-};
+
+  async function openIDB() {
+    if (typeof Dexie === 'undefined') { openFailed = true; showFallbackBanner(); return null; }
+    try {
+      const d = new Dexie('isobar');
+      d.version(1).stores({ kv: '&key' });
+      await d.open();
+      return d;
+    } catch (e) {
+      console.error('[Isobar] Dexie open failed, using localStorage fallback', e);
+      openFailed = true;
+      showFallbackBanner();
+      return null;
+    }
+  }
+
+  async function migrateFromLocalStorage() {
+    if (!idb) return;
+    try {
+      const marker = await idb.kv.get('__migrated_to_idb');
+      if (marker) return;
+      const now = Date.now();
+      const rows = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k === '__migrated_to_idb') continue;
+        let v;
+        try { v = JSON.parse(localStorage.getItem(k)); } catch { v = null; }
+        rows.push({ key: k, value: v, updatedAt: now });
+      }
+      await idb.transaction('rw', idb.kv, async () => {
+        if (rows.length) await idb.kv.bulkPut(rows);
+        await idb.kv.put({ key: '__migrated_to_idb', value: 1, updatedAt: now });
+      });
+    } catch (e) {
+      console.error('[Isobar] localStorage→IDB migration failed', e);
+    }
+  }
+
+  const ready = (async () => {
+    idb = await openIDB();
+    if (idb) await migrateFromLocalStorage();
+  })();
+
+  return {
+    ready,
+    get: async k => {
+      await ready;
+      if (idb) {
+        try { const r = await idb.kv.get(k); return r ? r.value : null; } catch { return null; }
+      }
+      try { return JSON.parse(localStorage.getItem(k)); } catch { return null; }
+    },
+    set: async (k, v) => {
+      await ready;
+      if (idb) {
+        try { await idb.kv.put({ key: k, value: v, updatedAt: Date.now() }); return true; } catch { return false; }
+      }
+      try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; }
+    },
+    remove: async k => {
+      await ready;
+      if (idb) { try { await idb.kv.delete(k); } catch {} return; }
+      localStorage.removeItem(k);
+    },
+    keys: async prefix => {
+      await ready;
+      if (idb) {
+        try { return await idb.kv.where('key').startsWith(prefix).primaryKeys(); } catch { return []; }
+      }
+      return Object.keys(localStorage).filter(k => k.startsWith(prefix));
+    },
+    allEntries: async () => {
+      await ready;
+      let items;
+      if (idb) {
+        try {
+          const rows = await idb.kv.where('key').startsWith('entry:').toArray();
+          items = rows.map(r => r.value).filter(Boolean);
+        } catch { items = []; }
+      } else {
+        const ks = Object.keys(localStorage).filter(k => k.startsWith('entry:'));
+        items = ks.map(k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }).filter(Boolean);
+      }
+      return items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    },
+  };
+})();
 
 // ── PIN SYSTEM ───────────────────────────────────────────────
 let pinBuffer = [];
@@ -569,8 +666,8 @@ function updateDots(prefix, count, error) {
   }
 }
 
-function initPIN() {
-  const stored = DB.get('pin');
+async function initPIN() {
+  const stored = await DB.get('pin');
   if (!stored) {
     showSetup();
   } else {
@@ -587,7 +684,7 @@ function showSetup() {
   buildKeypad('setup-keypad', setupDigit, setupDelete);
 }
 
-function setupDigit(d) {
+async function setupDigit(d) {
   if (pinBuffer.length >= 4) return;
   pinBuffer.push(d);
   updateDots('sd', pinBuffer.length, false);
@@ -600,7 +697,7 @@ function setupDigit(d) {
     } else {
       const entered = pinBuffer.join('');
       if (entered === setupFirst) {
-        DB.set('pin', setupFirst);
+        await DB.set('pin', setupFirst);
         unlock();
       } else {
         updateDots('sd', 4, true);
@@ -621,13 +718,13 @@ function showPINEntry() {
   buildKeypad('pin-keypad', pinDigit, pinDelete);
 }
 
-function pinDigit(d) {
+async function pinDigit(d) {
   if (pinBuffer.length >= 4) return;
   pinBuffer.push(d);
   updateDots('pd', pinBuffer.length, false);
   if (pinBuffer.length === 4) {
     const entered = pinBuffer.join('');
-    const stored = DB.get('pin');
+    const stored = await DB.get('pin');
     if (entered === stored) {
       unlock();
     } else {
@@ -650,11 +747,11 @@ function unlock() {
   initApp();
 }
 
-function changePIN() {
+async function changePIN() {
   isUnlocked = false;
   document.getElementById('app').style.display = 'none';
   document.getElementById('nav').style.display = 'none';
-  DB.remove('pin');
+  await DB.remove('pin');
   showSetup();
 }
 
@@ -920,7 +1017,7 @@ function startEpisode() {
   renderEpStep();
 }
 
-function renderEpStep() {
+async function renderEpStep() {
   const s = EP_STEPS[epStep];
   document.getElementById('ep-title').textContent = s.title;
   document.getElementById('ep-sub').textContent = s.sub;
@@ -1038,8 +1135,8 @@ function renderEpStep() {
         return isNaN(ms) ? Date.now() : ms;
       })();
       const epRefIso = new Date(epRefMs).toISOString();
-      const fastedMeal = findMealForEpisode(epRefIso);
-      const hoursFasted = fastedHoursFor(epRefIso);
+      const fastedMeal = await findMealForEpisode(epRefIso);
+      const hoursFasted = await fastedHoursFor(epRefIso);
       const mealCaption = fastedMeal
         ? `since ${mealSizeLabels[fastedMeal.mealSize] || 'meal'} at ${new Date(fastedMeal.timestamp).toLocaleString([], { weekday:'short', hour:'numeric', minute:'2-digit' })}`
         : 'no meal logged before this episode';
@@ -1111,8 +1208,8 @@ async function saveEpisode() {
   }
   // Prevent double-save
   const key = `entry:${new Date(epData.timestamp).getTime()}`;
-  if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
-  DB.set(key, epData);
+  if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
+  await DB.set(key, epData);
   showToast('Episode saved ✓');
   goHome();
   updateStats();
@@ -1343,7 +1440,7 @@ function renderCiStep() {
     </button>`;
 }
 
-function saveCheckin() {
+async function saveCheckin() {
   if (ciData.entryDate) {
     const timeStr = new Date().toTimeString().slice(0,5);
     const constructed = new Date(`${ciData.entryDate}T${timeStr}`);
@@ -1358,16 +1455,16 @@ function saveCheckin() {
     ciData.sleepHours = Math.round(mins / 6) / 10; // one decimal
   }
   const key = `entry:${new Date(ciData.timestamp).getTime()}`;
-  if (DB.get(key)) { showToast('Already saved'); goHome(); return; }
-  DB.set(key, ciData);
+  if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
+  await DB.set(key, ciData);
   showToast('Check-in saved ✓');
   goHome();
   updateStats();
 }
 
 // ── LOG VIEW ──────────────────────────────────────────────────
-function renderLog() {
-  const entries = DB.allEntries();
+async function renderLog() {
+  const entries = await DB.allEntries();
   const el = document.getElementById('log-list');
   if (!entries.length) {
     el.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--dim)">
@@ -1414,8 +1511,8 @@ function renderLog() {
 }
 
 // ── STATS ─────────────────────────────────────────────────────
-function updateStats() {
-  const entries = DB.allEntries();
+async function updateStats() {
+  const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
   const days = new Set(entries.map(e => e.timestamp.slice(0,10))).size;
@@ -1444,8 +1541,8 @@ function updateStats() {
 }
 
 // ── EXPORT ────────────────────────────────────────────────────
-function exportReport() {
-  const entries = DB.allEntries();
+async function exportReport() {
+  const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
 
@@ -1466,7 +1563,7 @@ function exportReport() {
   const commLabels = { normal:'Talking easily', quieter:'Quieter than usual', shortened:'Shorter responses', brief:'Brief only / yes-no or less' };
 
   r += `EPISODES\n${'─'.repeat(30)}\n`;
-  eps.forEach(e => {
+  for (const e of eps) {
     const d = new Date(e.timestamp);
     r += `\n${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}\n`;
     if (e.firstJerkTime) r += `  First jerk: ${e.firstJerkTime}\n`;
@@ -1484,8 +1581,8 @@ function exportReport() {
     const exposures = e.exposures || e.triggers || [];
     if (exposures.length) r += `  Exposures: ${exposures.join(', ')}\n`;
     // Compute fasted-hours live from meal history; fall back to legacy snapshot fields for pre-derived-model entries
-    const liveMeal = findMealForEpisode(e.timestamp);
-    const liveFasted = fastedHoursFor(e.timestamp);
+    const liveMeal = await findMealForEpisode(e.timestamp);
+    const liveFasted = await fastedHoursFor(e.timestamp);
     const fastedDisplay = liveFasted !== null ? String(liveFasted) : (e.fastedHours || null);
     const sizeDisplay = liveMeal ? liveMeal.mealSize : e.lastMealSize;
     if (fastedDisplay) {
@@ -1499,7 +1596,7 @@ function exportReport() {
       });
     }
     if (e.notes) r += `  Notes: ${e.notes}\n`;
-  });
+  }
 
   const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
   const stiffnessLabels = { none:'None', under_15:'<15 min', '15_to_60':'15-60 min', over_60:'1+ hours', ongoing:'Still stiff' };
@@ -1561,10 +1658,14 @@ function exportReport() {
   showToast('Report downloaded ✓');
 }
 
-function clearData() {
+async function clearData() {
   if (confirm('Permanently delete all logged entries? This cannot be undone.')) {
+    const allKeys = await DB.keys('');
+    for (const k of allKeys) {
+      if (k !== 'pin') await DB.remove(k);
+    }
     Object.keys(localStorage).forEach(k => { if (k !== 'pin') localStorage.removeItem(k); });
-    updateStats();
+    await updateStats();
     showToast('Data cleared', 'var(--warn)');
   }
 }
@@ -1612,21 +1713,21 @@ const mealSizeOpts = [
 const mealSizeLabels = { drink: 'drink', snack: 'snack', light: 'light meal', full: 'full meal' };
 
 // One-time: seed meal:entry history from existing meal:last on first load after derived-model rollout
-function migrateMealsToHistory() {
-  if (DB.keys('meal:entry:').length > 0) return;
-  const last = DB.get('meal:last');
+async function migrateMealsToHistory() {
+  if ((await DB.keys('meal:entry:')).length > 0) return;
+  const last = await DB.get('meal:last');
   if (last && last.timestamp && last.mealSize && last.mealSize !== 'drink') {
     const tsMs = new Date(last.timestamp).getTime();
-    if (!isNaN(tsMs)) DB.set(`meal:entry:${tsMs}`, { timestamp: last.timestamp, type: 'meal', mealSize: last.mealSize });
+    if (!isNaN(tsMs)) await DB.set(`meal:entry:${tsMs}`, { timestamp: last.timestamp, type: 'meal', mealSize: last.mealSize });
   }
 }
 
-function findMealForEpisode(episodeTs) {
+async function findMealForEpisode(episodeTs) {
   const epMs = new Date(episodeTs).getTime();
   if (isNaN(epMs)) return null;
   let best = null, bestMs = -Infinity;
-  for (const k of DB.keys('meal:entry:')) {
-    const m = DB.get(k);
+  for (const k of await DB.keys('meal:entry:')) {
+    const m = await DB.get(k);
     if (!m || !m.timestamp) continue;
     const mMs = new Date(m.timestamp).getTime();
     if (isNaN(mMs) || mMs > epMs) continue;
@@ -1635,16 +1736,16 @@ function findMealForEpisode(episodeTs) {
   return best;
 }
 
-function fastedHoursFor(episodeTs) {
-  const meal = findMealForEpisode(episodeTs);
+async function fastedHoursFor(episodeTs) {
+  const meal = await findMealForEpisode(episodeTs);
   if (!meal) return null;
   const epMs = new Date(episodeTs).getTime();
   const mMs = new Date(meal.timestamp).getTime();
   return Math.round((epMs - mMs) / 360000) / 10;
 }
 
-function logMeal(editExisting) {
-  const existing = editExisting ? DB.get('meal:last') : null;
+async function logMeal(editExisting) {
+  const existing = editExisting ? await DB.get('meal:last') : null;
   const prefill = existing ? new Date(existing.timestamp) : new Date();
   const prefillSize = existing?.mealSize || null;
 
@@ -1670,7 +1771,7 @@ function logMeal(editExisting) {
   </div>`;
 }
 
-function saveMeal() {
+async function saveMeal() {
   const picker = document.getElementById('meal-picker');
   const size = picker?.dataset.size;
   if (!size) { showToast('Pick a size first', 'var(--warn)'); return; }
@@ -1685,19 +1786,19 @@ function saveMeal() {
 
   if (size === 'drink') {
     // Drink doesn't reset fasting clock — not added to meal:entry history
-    DB.set('meal:last_drink', { timestamp: ts.toISOString(), type: 'meal', mealSize: 'drink' });
+    await DB.set('meal:last_drink', { timestamp: ts.toISOString(), type: 'meal', mealSize: 'drink' });
     showToast('Drink logged ✓');
   } else {
     // Editing an existing meal: remove the prior meal:entry record so derived calcs see only one truth
     const editingOldTs = picker?.dataset.editingOriginalTs;
     if (editingOldTs) {
       const oldMs = new Date(editingOldTs).getTime();
-      if (!isNaN(oldMs)) DB.remove(`meal:entry:${oldMs}`);
+      if (!isNaN(oldMs)) await DB.remove(`meal:entry:${oldMs}`);
     }
     const newTsMs = ts.getTime();
-    DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
-    const existing = DB.get('meal:last') || {};
-    DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+    await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+    const existing = (await DB.get('meal:last')) || {};
+    await DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
     showToast('Meal logged ✓');
   }
   renderMealCard();
@@ -1765,11 +1866,11 @@ function getMealSuggestion(hoursElapsed, mealSize) {
   };
 }
 
-function renderMealCard() {
+async function renderMealCard() {
   const el = document.getElementById('meal-card');
   if (!el) return;
 
-  const last = DB.get('meal:last');
+  const last = await DB.get('meal:last');
   const now = new Date();
 
   if (!last) {
@@ -1823,8 +1924,8 @@ function startMealTimer() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
-function initApp() {
-  migrateMealsToHistory();
+async function initApp() {
+  await migrateMealsToHistory();
   fetchWeather();
   updateStats();
   renderMealCard();
