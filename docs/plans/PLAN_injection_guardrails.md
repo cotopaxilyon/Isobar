@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 2 + 2a + 3 + 4 + 5 + 8 + 9 + 10 shipped; ready for Wave 7 (docs)
+status: Waves 1 + 2 + 2a + 3 + 4 + 5 + 7 + 8 + 9 + 10 shipped; Wave 6 (canary) deferred until first real autopilot run
 created: 2026-04-17
 updated: 2026-04-18
-resume-at: "Wave 7 — add Security floor section to docs/ARCHITECTURE.md + architecture-grep check"
+resume-at: "Wave 6 — action-diffing canary; re-enter after autopilot has shipped 3-5 tickets so real transcripts can baseline the expected tool-call manifest"
 ---
 
 ## PLAN_REVIEW citations
@@ -709,7 +709,16 @@ and that's the larger blast radius.
     string-shaped tool_response (missing `?` on optional-path `.isError`);
     fixed to use `.tool_response.isError? // .tool_response.is_error? // false`
     and an explicit null-guard in the extraction pipeline.
-12. Wave 7 — document and add the architecture-grep check.
+12. ~~Wave 7 — document and add the architecture-grep check.~~
+    **Shipped 2026-04-18.** Added `## 3. Security floor in Claude Code config`
+    to `docs/ARCHITECTURE.md` — rule + why (names the four load-bearing
+    components: deny floor, outbound network allowlists, Linear output
+    templating, per-mode tool manifests) + verification grep that covers
+    four load-bearing deny entries and asserts all 8 hook scripts are
+    present and executable. Verified to print `ok` against the current
+    state. The `.claude/commands/{autopilot,qa-check}.md` step-0 active-mode
+    sentinel was already in place from Wave 3, so the final bullet of the
+    original Wave 7 spec needed no action.
 
 Each wave is independently shippable and testable. Don't bundle.
 
