@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 3 + 8 shipped; ready for Wave 9 (pre-commit diff scanner)
+status: Waves 1 + 3 + 8 + 9 shipped; ready for Wave 2 (browser_navigate allowlist)
 created: 2026-04-17
 updated: 2026-04-17
-resume-at: "Wave 9 — PreToolUse hook on Bash matching `git commit*`, runs `git diff --cached`, denies on injection patterns"
+resume-at: "Wave 2 — PreToolUse hook for browser_navigate URL allowlist"
 ---
 
 ## PLAN_REVIEW citations
@@ -613,9 +613,20 @@ and that's the larger blast radius.
    shell glob patterns. Empty `file_path` denied conservatively. Missing
    manifest is permissive (mode has no write policy). 10 branches
    smoke-tested before wiring.
-5. **Wave 9 — pre-commit diff content scanner.** The load-bearing wave for
-   the dev agent. Catches attacker-text-as-code regardless of whether
-   upstream constraints held.
+5. ~~Wave 9 — pre-commit diff content scanner.~~ **Shipped 2026-04-17.**
+   `scripts/hooks/preToolUse-diff-scanner.sh` matched on `Bash`, gated on
+   command starting with `git commit` (after whitespace strip — leading-ws
+   bypass test passed). Runs `git -C "$cwd" diff --cached -U0` (uses hook's
+   `cwd` field, not hardcoded — caught during smoke testing when first
+   draft hardcoded `cd $REPO` and missed every test case). 5 pattern
+   classes, 14 branches smoke-tested. Always-on (no active-mode gating)
+   because PreToolUse only fires for tool-issued commands; the user's
+   manual `git commit` from a terminal bypasses the hook, which is the
+   correct trust boundary. URL allowlist at
+   `.claude/diff-scanner-url-allowlist.txt` covers existing legitimate
+   externals (open-meteo, w3.org, unpkg.com/dexie); shorteners deliberately
+   omitted (they exist only inside vendor/dexie.min.js, which is
+   write-path-blocked at Wave 8).
 6. Wave 2 — domain allowlist hook for `browser_navigate`.
 7. Wave 2a — domain allowlist hook for `WebFetch` (promoted from Wave 1).
 8. Wave 4 — template enforcement on `save_comment` / `save_issue`.

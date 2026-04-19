@@ -1,0 +1,24 @@
+# URL substring allowlist for the pre-commit diff scanner.
+# Each non-comment line is matched as a substring against URLs found in
+# added lines of the staged diff. Match → URL is allowed. No match → commit
+# is denied. Lines starting with # are comments.
+#
+# Add a host (and optionally path prefix) to allow URLs containing it.
+# Example: linear.app matches https://linear.app/issue/X and https://api.linear.app/y.
+
+linear.app
+hopkinsmedicine.org
+dev.to
+github.com/cotopaxilyon/Isobar
+127.0.0.1
+localhost
+
+# Existing legitimate external dependencies (audited 2026-04-17)
+api.open-meteo.com
+w3.org/2000/svg
+unpkg.com/dexie
+
+# Deliberately NOT allowlisted: shorteners (bit.ly, tinyurl.com) appear
+# inside vendor/dexie.min.js — that file is blocked from agent writes via
+# the Wave 8 write-path allowlist, so they shouldn't appear in agent-staged
+# diffs. If they do, surface for review rather than auto-allow.

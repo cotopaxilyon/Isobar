@@ -39,6 +39,15 @@
             "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-write-path.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-diff-scanner.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
