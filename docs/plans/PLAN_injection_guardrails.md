@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 2 + 2a + 3 + 4 + 8 + 9 shipped; ready for Wave 10 (diff-vs-ticket-scope advisory)
+status: Waves 1 + 2 + 2a + 3 + 4 + 8 + 9 + 10 shipped; ready for Wave 5 (trust labelling)
 created: 2026-04-17
 updated: 2026-04-18
-resume-at: "Wave 10 — PostToolUse advisory comment on over-reach vs ticket scope"
+resume-at: "Wave 5 — PostToolUse trust-label wrapping on MCP tool output"
 ---
 
 ## PLAN_REVIEW citations
@@ -675,7 +675,25 @@ and that's the larger blast radius.
    Calibration note from the plan stands: after 3–5 real autopilot comments
    and a qa-check batch, re-walk the opener sets and char class against what
    shipped.
-9. Wave 10 — diff-vs-ticket-scope advisory comment.
+9. ~~Wave 10 — diff-vs-ticket-scope advisory comment.~~
+   **Shipped 2026-04-18.** `scripts/hooks/postToolUse-scope-advisory.sh`
+   matched on `Bash`, gated on (a) command begins with `git commit`, (b) tool
+   response not an error, (c) active mode is `autopilot`, (d) HEAD subject
+   matches `^ISO-[0-9]+:`, (e) `docs/autopilot/<ticket>.dossier.json` exists.
+   The plan originally called for the hook to post a Linear comment; hooks
+   can't invoke MCP tools, so the advisory is written to
+   `docs/autopilot/<ticket>.scope-advisory.md` (generated markdown with
+   frontmatter, SHA-keyed content, regenerated on every run) and autopilot
+   step 14 was updated to read it and include the Over-reach list in its
+   existing Linear comment — staying inside the Wave 4 char-class allowlist.
+   Implied-by set (never flagged): `dossier.files_to_touch` exact matches,
+   `docs/autopilot/<ticket>.*`, `docs/testing/TEST-*.md`,
+   `docs/qa-fail/<ticket>.md`. 10 branches smoke-tested using `git worktree`
+   against three real ISO-21 commits: `baa4711` (index.html only → no-op),
+   `8591947` (index.html + docs/ARCHITECTURE.md → advisory correctly flags
+   ARCHITECTURE.md), `abba4c4` (docs/qa-fail/ISO-21.md only → no-op, implied
+   set). Plus 7 gating branches (non-Bash, non-commit, isError, non-ISO HEAD,
+   stale sentinel, qa-check mode, absent sentinel) all no-op as expected.
 10. Wave 6 — canary script (now covers both side-channel and dev-agent
     payloads). Treat any failure as a release blocker for autopilot.
 11. Wave 5 — trust-labelling on ingest. Last because it's defensive depth,
