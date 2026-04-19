@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 2 + 3 + 8 + 9 shipped; ready for Wave 2a (WebFetch allowlist)
+status: Waves 1 + 2 + 2a + 3 + 8 + 9 shipped; ready for Wave 4 (Linear output templating)
 created: 2026-04-17
-updated: 2026-04-17
-resume-at: "Wave 2a — PreToolUse hook for WebFetch URL allowlist (promoted from Wave 1)"
+updated: 2026-04-18
+resume-at: "Wave 4 — template enforcement on save_comment / save_issue"
 ---
 
 ## PLAN_REVIEW citations
@@ -638,7 +638,20 @@ and that's the larger blast radius.
    which correctly deny because the shell glob `…:8765/*` requires a
    literal `/` after the port. Adding new domains is a deliberate script
    edit rather than an in-flight permission grant.
-7. Wave 2a — domain allowlist hook for `WebFetch` (promoted from Wave 1).
+7. ~~Wave 2a — domain allowlist hook for `WebFetch` (promoted from Wave 1).~~
+   **Shipped 2026-04-18.** `scripts/hooks/preToolUse-webfetch-allowlist.sh`
+   matched on `WebFetch`. Host extraction done in pure shell parameter
+   expansion (strip scheme → authority → userinfo → port → lowercase) so
+   spoof variants like `www.hopkinsmedicine.org@attacker.example` and
+   `www.hopkinsmedicine.org.attacker.com` correctly deny because the extracted
+   host is `attacker.example` / `…attacker.com`, not the allowlisted string.
+   Allowlist hardcoded to `www.hopkinsmedicine.org` and `dev.to` (exact-match,
+   no subdomain wildcard — adding `sub.dev.to` requires an explicit script
+   edit). 14 branches smoke-tested before wiring: non-WebFetch no-op,
+   allowed hosts (exact, uppercase, with port, with path+query), all spoof
+   classes, empty URL, no-scheme URL, http+https. Always-on (no active-mode
+   gating) to match Wave 2 pattern. Existing `WebFetch(domain:...)` entries
+   in `settings.local.json` are now redundant but left in place.
 8. Wave 4 — template enforcement on `save_comment` / `save_issue`.
 9. Wave 10 — diff-vs-ticket-scope advisory comment.
 10. Wave 6 — canary script (now covers both side-channel and dev-agent
