@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 2 + 2a + 3 + 4 + 8 + 9 + 10 shipped; ready for Wave 5 (trust labelling)
+status: Waves 1 + 2 + 2a + 3 + 4 + 5 + 8 + 9 + 10 shipped; ready for Wave 7 (docs)
 created: 2026-04-17
 updated: 2026-04-18
-resume-at: "Wave 5 — PostToolUse trust-label wrapping on MCP tool output"
+resume-at: "Wave 7 — add Security floor section to docs/ARCHITECTURE.md + architecture-grep check"
 ---
 
 ## PLAN_REVIEW citations
@@ -696,8 +696,19 @@ and that's the larger blast radius.
    stale sentinel, qa-check mode, absent sentinel) all no-op as expected.
 10. Wave 6 — canary script (now covers both side-channel and dev-agent
     payloads). Treat any failure as a release blocker for autopilot.
-11. Wave 5 — trust-labelling on ingest. Last because it's defensive depth,
-    not load-bearing.
+11. ~~Wave 5 — trust-labelling on ingest.~~ **Shipped 2026-04-18.**
+    `scripts/hooks/postToolUse-trust-label.sh` matched on
+    `mcp__linear__list_comments|mcp__linear__get_issue|mcp__playwright__browser_snapshot|mcp__playwright__browser_evaluate`.
+    Uses `updatedMCPToolOutput` to replace the tool response with the
+    original content wrapped in `<untrusted source="linear|dom" tool="...">...</untrusted>`.
+    Whole-response wrap chosen over per-field (plan's original design) to
+    stay robust against Linear schema drift — per-field walking would break
+    silently if Linear renames `body` → `content` some day. Skips on
+    `isError=true`, null/missing `tool_response`, and non-matching tools.
+    7 branches smoke-tested. First draft emitted a cryptic jq error on
+    string-shaped tool_response (missing `?` on optional-path `.isError`);
+    fixed to use `.tool_response.isError? // .tool_response.is_error? // false`
+    and an explicit null-guard in the extraction pipeline.
 12. Wave 7 — document and add the architecture-grep check.
 
 Each wave is independently shippable and testable. Don't bundle.

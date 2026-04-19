@@ -86,6 +86,15 @@
             "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/postToolUse-scope-advisory.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__linear__list_comments|mcp__linear__get_issue|mcp__playwright__browser_snapshot|mcp__playwright__browser_evaluate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/postToolUse-trust-label.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
