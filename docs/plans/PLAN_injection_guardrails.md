@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 3 + 8 + 9 shipped; ready for Wave 2 (browser_navigate allowlist)
+status: Waves 1 + 2 + 3 + 8 + 9 shipped; ready for Wave 2a (WebFetch allowlist)
 created: 2026-04-17
 updated: 2026-04-17
-resume-at: "Wave 2 — PreToolUse hook for browser_navigate URL allowlist"
+resume-at: "Wave 2a — PreToolUse hook for WebFetch URL allowlist (promoted from Wave 1)"
 ---
 
 ## PLAN_REVIEW citations
@@ -627,7 +627,17 @@ and that's the larger blast radius.
    externals (open-meteo, w3.org, unpkg.com/dexie); shorteners deliberately
    omitted (they exist only inside vendor/dexie.min.js, which is
    write-path-blocked at Wave 8).
-6. Wave 2 — domain allowlist hook for `browser_navigate`.
+6. ~~Wave 2 — domain allowlist hook for `browser_navigate`.~~ **Shipped
+   2026-04-17.** `scripts/hooks/preToolUse-browser-navigate.sh` matched
+   on `mcp__playwright__browser_navigate`. Allowlist hardcoded to
+   `http://127.0.0.1:8765/*` and `http://localhost:8765/*` (the local
+   PWA server). Always-on (no active-mode gating) because both
+   `/autopilot` and `/qa-check` use Playwright and neither legitimately
+   navigates off-loopback. 16 branches smoke-tested — including two
+   spoof variants (`…:8765.attacker.com` and `…:8765@attacker.example`)
+   which correctly deny because the shell glob `…:8765/*` requires a
+   literal `/` after the port. Adding new domains is a deliberate script
+   edit rather than an in-flight permission grant.
 7. Wave 2a — domain allowlist hook for `WebFetch` (promoted from Wave 1).
 8. Wave 4 — template enforcement on `save_comment` / `save_issue`.
 9. Wave 10 — diff-vs-ticket-scope advisory comment.

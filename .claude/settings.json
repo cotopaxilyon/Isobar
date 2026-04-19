@@ -48,6 +48,15 @@
             "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-diff-scanner.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__playwright__browser_navigate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-browser-navigate.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
