@@ -1,8 +1,8 @@
 ---
-status: Waves 1 + 2 + 2a + 3 + 8 + 9 shipped; ready for Wave 4 (Linear output templating)
+status: Waves 1 + 2 + 2a + 3 + 4 + 8 + 9 shipped; ready for Wave 10 (diff-vs-ticket-scope advisory)
 created: 2026-04-17
 updated: 2026-04-18
-resume-at: "Wave 4 — template enforcement on save_comment / save_issue"
+resume-at: "Wave 10 — PostToolUse advisory comment on over-reach vs ticket scope"
 ---
 
 ## PLAN_REVIEW citations
@@ -652,7 +652,29 @@ and that's the larger blast radius.
    classes, empty URL, no-scheme URL, http+https. Always-on (no active-mode
    gating) to match Wave 2 pattern. Existing `WebFetch(domain:...)` entries
    in `settings.local.json` are now redundant but left in place.
-8. Wave 4 — template enforcement on `save_comment` / `save_issue`.
+8. ~~Wave 4 — template enforcement on `save_comment` / `save_issue`.~~
+   **Shipped 2026-04-18.** `scripts/hooks/preToolUse-linear-output.sh`
+   matched on `mcp__linear__save_comment|mcp__linear__save_issue`. Mode-gated:
+   fires only when `.claude/active-mode` names `autopilot` or `qa-check` (manual
+   sessions pass through). Two checks on any `body` / `description` / `title`
+   being set: (a) body starts with a prefix from
+   `.claude/mode-manifests/<mode>-comment-openers.txt`, (b) body uses only
+   chars in `[A-Za-z0-9 .,:/_()[]backtick#\n-]`. `save_issue` state/label-only
+   updates (no text content) pass through. Char class is the load-bearing
+   defense — catches HTML tags, query-string URLs, em-dash, curly quotes,
+   @mentions, and non-ASCII generally. Note the plan's own template prose
+   uses em-dash, which the char class excludes; opener files use ASCII
+   equivalents. 25 branches smoke-tested before wiring: happy paths (3
+   autopilot + multi-line), 11 deny paths (unknown opener, HTML, URL-with-query,
+   em-dash, @mention, curly quotes, ASCII quotes, exclamation, empty, missing,
+   injection echo), state/label-only (2), body-on-save_issue (3), mode gating
+   (autopilot↔qa-check + stale + no-sentinel + unknown-mode). After the first
+   run surfaced a `tr`/multi-byte locale issue that made the error-message
+   sample come out empty, added `LC_ALL=C` to every byte-level op so offending
+   chars (em-dash, curly quotes) display correctly in the deny reason.
+   Calibration note from the plan stands: after 3–5 real autopilot comments
+   and a qa-check batch, re-walk the opener sets and char class against what
+   shipped.
 9. Wave 10 — diff-vs-ticket-scope advisory comment.
 10. Wave 6 — canary script (now covers both side-channel and dev-agent
     payloads). Treat any failure as a release blocker for autopilot.

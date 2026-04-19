@@ -1,0 +1,19 @@
+# Linear comment / issue-body openers for /autopilot (Wave 4).
+#
+# Enforced by scripts/hooks/preToolUse-linear-output.sh.
+# Each line is a literal case-sensitive prefix. The body must start with one
+# of these strings. Blank lines and #-prefixed lines are ignored.
+#
+# The body must also use only ASCII chars from the restricted class
+# (A-Za-z0-9, space, newline, . , : / _ - ( ) [ ] backtick #). No em-dash,
+# no quotes, no @mentions, no HTML, no URLs with ?=& in them.
+
+Shipped in
+Bailed out
+Needs human review
+Blocked by adversary
+Scope gate failed
+Critic disagreed
+Drift tripwire fired
+Architecture check failed
+Self-QA failed

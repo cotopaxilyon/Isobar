@@ -66,6 +66,15 @@
             "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-webfetch-allowlist.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__linear__save_comment|mcp__linear__save_issue",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/cotopaxilyon/WebstormProjects/Isobar/scripts/hooks/preToolUse-linear-output.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

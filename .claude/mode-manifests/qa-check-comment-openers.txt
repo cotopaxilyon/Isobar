@@ -1,0 +1,9 @@
+# Linear comment / issue-body openers for /qa-check (Wave 4).
+#
+# Enforced by scripts/hooks/preToolUse-linear-output.sh.
+# Each line is a literal case-sensitive prefix. Blank lines and #-prefixed
+# lines are ignored. Body must also pass the restricted ASCII char class.
+
+Shipped in
+Fix plan drafted
+Needs human review
