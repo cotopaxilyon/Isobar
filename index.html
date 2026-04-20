@@ -1160,10 +1160,10 @@ async function renderEpStep() {
         {value:'altered',label:"Feeling 'high' / altered"},
         {value:'blurry',label:'Blurry vision'},
         {value:'back_pressure',label:'Lower back pressure'},
-        {value:'right_leg_energy',label:'Energy in right leg'},
         {value:'left_leg_energy',label:'Energy in left leg'},
-        {value:'right_face',label:'Right face tingling'},
+        {value:'right_leg_energy',label:'Energy in right leg'},
         {value:'left_face',label:'Left face tingling'},
+        {value:'right_face',label:'Right face tingling'},
         {value:'throat',label:'Throat tightening'},
       ];
       html = `<div class="choices">${choices(prodOpts, epData.prodrome, null, true)}</div>`;
@@ -1171,11 +1171,11 @@ async function renderEpStep() {
     case 2:
       epData._lastArr = 'limbsAffected';
       const limbOpts = [
-        {value:'right_leg',label:'Right leg'},
         {value:'left_leg',label:'Left leg'},
+        {value:'right_leg',label:'Right leg'},
         {value:'bilateral_legs',label:'Both legs'},
-        {value:'right_arm',label:'Right arm'},
         {value:'left_arm',label:'Left arm'},
+        {value:'right_arm',label:'Right arm'},
         {value:'sleep_continue',label:'Continues in sleep'},
       ];
       html = `
