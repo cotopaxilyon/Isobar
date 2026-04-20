@@ -1015,13 +1015,13 @@ function choices(opts, selected, onToggle, multi) {
 
 function commBtn(value, label, color, selected) {
   const sel = selected === value;
-  return `<button class="comm-btn" style="${sel ? `background:${color}20;color:${color};border-color:${color};font-weight:600` : ''}"
+  return `<button class="comm-btn" style="${sel ? `background:color-mix(in srgb, ${color} 12%, transparent);color:${color};border-color:${color};font-weight:600` : ''}"
     onclick="window._formSet('${value}')">${label}</button>`;
 }
 
 function sevBtn(value, label, color, selected) {
   const sel = selected === value;
-  return `<button class="sev-btn" style="${sel ? `background:${color}20;color:${color};border-color:${color};font-weight:600` : ''}"
+  return `<button class="sev-btn" style="${sel ? `background:color-mix(in srgb, ${color} 12%, transparent);color:${color};border-color:${color};font-weight:600` : ''}"
     onclick="window._formSet('${value}')">${label}</button>`;
 }
 
@@ -1060,7 +1060,7 @@ function bodyMap(selected, activeColor = 'var(--accent)') {
       `<div class="body-row">${pair.map(([id, label]) => {
         const on = sel.includes(id);
         const style = on
-          ? `background:${activeColor}20;color:${activeColor};border-color:${activeColor};font-weight:600`
+          ? `background:color-mix(in srgb, ${activeColor} 12%, transparent);color:${activeColor};border-color:${activeColor};font-weight:600`
           : '';
         return `<button class="body-btn" style="${style}"
           onclick="window._bodyToggle('${id}')">${label}</button>`;
@@ -1483,7 +1483,7 @@ function renderCiStep() {
             const labels = ['Talking easily — normal back and forth','Quieter than usual — responding, not initiating','Shorter responses — harder to elaborate','Brief only — yes/no or less'];
             const colors = ['var(--good)','var(--warn)','#f97316','var(--danger)'];
             const sel = ciData.communicationLevel === v;
-            return `<button class="comm-btn" style="${sel?`background:${colors[i]}20;color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+            return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${colors[i]} 12%, transparent);color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
               onclick="ciData.communicationLevel='${v}';renderCiStep()">${labels[i]}</button>`;
           }).join('')}
         </div>
@@ -1500,7 +1500,7 @@ function renderCiStep() {
               const labels = ['Normal — usual patience','Edgy — quicker to react than usual','Sensory overload — sounds / light / touch grating','Snap-line — anything extra is too much'];
               const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
               const sel = ciData.irritabilityLevel === v;
-              return `<button class="comm-btn" style="${sel?`background:${colors[i]}20;color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+              return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${colors[i]} 12%, transparent);color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
                 onclick="ciData.irritabilityLevel='${v}';renderCiStep()">${labels[i]}</button>`;
             }).join('')}
           </div>
@@ -1528,7 +1528,7 @@ function renderCiStep() {
         <div class="sev-options">
           ${todayOpts.map(o => {
             const sel = ciData.functionalToday === o.value;
-            return `<button class="sev-btn" style="${sel?`background:${o.color}20;color:${o.color};border-color:${o.color};font-weight:600`:''}"
+            return `<button class="sev-btn" style="${sel?`background:color-mix(in srgb, ${o.color} 12%, transparent);color:${o.color};border-color:${o.color};font-weight:600`:''}"
               onclick="ciData.functionalToday='${o.value}';renderCiStep()">${o.label}</button>`;
           }).join('')}
         </div>
@@ -2088,8 +2088,8 @@ async function logMeal(editExisting) {
     <div class="comm-options" id="meal-size-btns">
       ${mealSizeOpts.map(o => {
         const sel = prefillSize === o.value;
-        return `<button class="comm-btn" style="${sel ? 'background:var(--good)20;color:var(--good);border-color:var(--good);font-weight:600' : ''}"
-          onclick="document.querySelectorAll('#meal-size-btns .comm-btn').forEach(b=>{b.style=''}); this.style='background:var(--good)20;color:var(--good);border-color:var(--good);font-weight:600'; document.getElementById('meal-picker').dataset.size='${o.value}'">${o.icon} ${o.label}</button>`;
+        return `<button class="comm-btn" style="${sel ? 'background:color-mix(in srgb, var(--good) 12%, transparent);color:var(--good);border-color:var(--good);font-weight:600' : ''}"
+          onclick="document.querySelectorAll('#meal-size-btns .comm-btn').forEach(b=>{b.style=''}); this.style='background:color-mix(in srgb, var(--good) 12%, transparent);color:var(--good);border-color:var(--good);font-weight:600'; document.getElementById('meal-picker').dataset.size='${o.value}'">${o.icon} ${o.label}</button>`;
       }).join('')}
     </div>
     <div style="margin-top:10px">
