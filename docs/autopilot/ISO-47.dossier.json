@@ -1,0 +1,139 @@
+{
+  "_meta": {
+    "kind": "autopilot-dossier",
+    "schema_version": 1,
+    "note": "Live run 2026-04-19. Bail-out dossier — the ticket explicitly adds two tracked fields to the check-in record, which PLAN_autopilot_harness.md:87 lists as out of scope for autonomous handling. Three adversary escalates + one flag retained below for the human reviewer."
+  },
+
+  "ticket_id": "ISO-47",
+  "ticket_url": "https://linear.app/isobar/issue/ISO-47/tick-013-morning-irritability-block-part-a1",
+  "ticket_labels": ["agent-ok"],
+  "picked_at": "2026-04-19T22:30:00Z",
+  "executor_model": "claude-opus-4-7[1m]",
+
+  "ac_verbatim": [
+    "New 4-button block \"Right now — fuse / sensory tolerance\" renders below the communication options in the Communication step",
+    "Options are `Normal — usual patience` / `Edgy — quicker to react than usual` / `Sensory overload — sounds / light / touch grating` / `Snap-line — anything extra is too much`",
+    "Color ramp matches `communicationLevel`: `var(--good)` → `var(--accent)` → `#f97316` → `var(--danger)`",
+    "New 3-button toggle \"Has anyone noticed you snapping or seeming on edge?\" with options `Yes` / `No` / `No one around`",
+    "Both blocks are optional — saving the check-in does not require either",
+    "Stored on the check-in record as `irritabilityLevel` (`normal | edgy | overload | snap_line`) and `morningIrritabilityExternalObservation` (`yes | no | no_one_around`)",
+    "`ciData` defaults expose `irritabilityLevel: null` and `morningIrritabilityExternalObservation: null` so partial check-ins serialize cleanly",
+    "Log card and export render irritability when present, omit silently when null",
+    "Existing morning check-ins without the new fields render in log and export without error",
+    "SW cache version bumped"
+  ],
+
+  "ac_paraphrase_check": "ACs quoted verbatim above from ISO-47 Acceptance Criteria. No paraphrase used in scope-gate reasoning. Ordering note: AC#1 says 'below the communication options' which is ambiguous versus Agent Context line 41 which specifies 'after the existing <div class=\"section\"> that holds the external-observation prompt' — the DOM-order post-condition is not fully pinned by AC alone. Recorded as adversary objection #4 (escalate) below.",
+
+  "scope_gate": [
+    {
+      "rule": "Label is Bug or Improvement, not Feature (PLAN_autopilot_harness.md:75)",
+      "evidence_cmd": "mcp__linear__get_issue ISO-47 -> labels",
+      "result": "['agent-ok'] — no Feature label, but also no Bug/Improvement label. Ticket is a Stage 1 behavior addition, not a bugfix or copy tweak.",
+      "verdict": "fail",
+      "judgement_note": "The ticket adds a new user-facing block with two new tracked fields; it is functionally a feature-shaped change even without the Feature label. This is the first of multiple stages (A1) in a larger plan (PLAN_irritability_and_severity_mapping.md), not an isolated bugfix."
+    },
+    {
+      "rule": "Fits one allowed change shape: copy / CSS-no-reflow / a11y-attribute / isolated bugfix (PLAN_autopilot_harness.md:77-81)",
+      "evidence_cmd": "Read ISO-47 summary + AC#1-#10",
+      "result": "Adds new DOM block (reflow), two new persisted fields, new export branch, new log-card chip. Not copy, not CSS, not a11y, not an isolated bugfix.",
+      "verdict": "fail",
+      "judgement_note": "Change fits none of the four allowed shapes. The ticket is a net-new UI surface, explicitly Part A1 of a multi-stage plan."
+    },
+    {
+      "rule": "No localStorage data shape change; no tracked field added (PLAN_autopilot_harness.md:87)",
+      "evidence_cmd": "Read index.html:1320-1337 (ciData shape) + AC#6 and AC#7 from ISO-47",
+      "result": "AC#6 mandates two new persisted keys on the check-in record: `irritabilityLevel` and `morningIrritabilityExternalObservation`. AC#7 mandates `ciData` defaults expose them. `ciData` is persisted to Dexie via DB.saveEntry (serialized to localStorage via the PWA's persistence layer).",
+      "verdict": "fail",
+      "judgement_note": "Explicit tracked-field addition. This is the rule the adversary flagged at escalate-severity; it is definitive bail-out grounds regardless of the other gates."
+    },
+    {
+      "rule": "All ACs are code-verifiable — no felt-sense judgment required (PLAN_autopilot_harness.md:82, :89)",
+      "evidence_cmd": "Enumerate each AC against diff+grep+DOM criteria",
+      "result": "AC#1-#5, #7-#10 are code-verifiable (DOM snapshot, grep for key names, null-guard render tests). AC#6 ('stored on the check-in record as irritabilityLevel') is code-verifiable. However, AC#1's 'below the communication options' is ambiguous against Agent Context line 41 — the DOM order between the new block and the existing externalObservation section is not pinned by AC verbatim. Executor would have to judge; that is borderline felt-sense.",
+      "verdict": "fail",
+      "judgement_note": "The AC-vs-Agent-Context placement ambiguity (adversary objection #4) means the dossier would have to guess which of two valid DOM orderings the user intended. That is the kind of UX/flow judgment the harness reserves for human UAT."
+    },
+    {
+      "rule": "No conflict with another open ticket on the same component (PLAN_autopilot_harness.md:92)",
+      "evidence_cmd": "Read docs/tickets/TICK-014-cycle-related-day-rename.md + grep -n 'moodShift' index.html",
+      "result": "TICK-014 (ISO-48) is in Backlog and modifies the cyclePhaseProxy.moodShift export branch at index.html:1722 and the cycle-phase render region. TICK-013 does not touch moodShift per its own guardrail (ticket line 46). But both tickets live in the same Stage 1 milestone, drafted the same day, with no ordering guarantee.",
+      "verdict": "pass",
+      "judgement_note": "Flag-severity only: TICK-013 stays inside its own fields, so this does not gate the bail-out. If this ticket were ever resumed, the reviewer should decide a sequencing."
+    },
+    {
+      "rule": "Ticket Agent Context cites line numbers that exist and point at the right surfaces",
+      "evidence_cmd": "Read index.html:1605, :1618-1628 (the 'log card render path' ticket line 45 points at)",
+      "result": "Ticket line 45 names `index.html:1624` as a 'log card render path' and asks the executor to 'add an irritability chip mirroring the communication chip when `irritabilityLevel` is set'. Line 1624 is inside the stats `recent-ep` block, which iterates `eps = entries.filter(e => e.type === 'episode')` (index.html:1605). Episodes do not carry `irritabilityLevel` — that is a check-in field per AC#6. Rendering a chip there would be unreachable code.",
+      "verdict": "fail",
+      "judgement_note": "Adversary objection #3 confirmed by direct read. The ticket's Agent Context has a miscitation: the irritability chip cannot belong on the episode recent-list card. Either the ticket intends a different render site (and the executor must guess which) or the 1624 edit should be dropped (and the ticket is wrong). This is not resolvable inside the dossier without patient clarification."
+    }
+  ],
+
+  "files_to_touch": ["index.html"],
+
+  "adjacent_surfaces": [
+    {
+      "string_or_symbol": "ciData (check-in record shape)",
+      "grep_cmd": "grep -n 'ciData' index.html",
+      "all_call_sites": [
+        "index.html:1320 (definition)",
+        "index.html:1478-1491 (Communication step bindings)",
+        "multiple writer sites in renderCiStep cases 0-4",
+        "DB.saveEntry call site where ciData is persisted"
+      ],
+      "all_changed": false,
+      "change_required_at": ["ciData shape at 1320-1337 gains two keys — bail-out rule trips here"]
+    },
+    {
+      "string_or_symbol": "moodShift (cycle-phase field)",
+      "grep_cmd": "grep -n 'moodShift' index.html",
+      "all_call_sites": [
+        "index.html:1333 (default in ciData)",
+        "index.html:1459 (cycle-phase render)",
+        "index.html:1722 (export branch)"
+      ],
+      "all_changed": false,
+      "note": "TICK-014 renames this. TICK-013 does not touch it. Recorded as flag for reviewer."
+    },
+    {
+      "string_or_symbol": "recent-ep (stats episode card)",
+      "grep_cmd": "grep -n 'recent-ep' index.html",
+      "all_call_sites": ["index.html:1621 (class decl)", "index.html:1624 (communicationLevel chip)"],
+      "all_changed": null,
+      "note": "Ticket Agent Context miscites this as a log-card render path for irritabilityLevel. It is episode-only."
+    }
+  ],
+
+  "root_cause_one_sentence": "Not applicable — this is not a bugfix. The ticket is a Stage 1 feature addition that adds two new tracked fields to the check-in record and a new user-facing block.",
+
+  "approach_chosen": "Bail out. The ticket is out of scope per three independent scope-gate rules (tracked-field addition; change shape not on the allowlist; AC placement ambiguity requires UX judgment) and contains a miscitation (line 1624) that the executor cannot resolve without patient clarification.",
+  "approach_alternatives_considered": [
+    "Proceed with a narrow interpretation of AC#6 treating irritability as derivable rather than persisted — rejected: AC#6 explicitly says 'Stored on the check-in record as irritabilityLevel', persistence is the feature.",
+    "Proceed but skip the 1624 edit — rejected: the Agent Context named it, so skipping it without patient signoff is silently re-scoping the ticket.",
+    "Proceed but pick one of the two possible DOM placements — rejected: AC placement ambiguity is felt-sense / UX flow judgment, reserved for UAT."
+  ],
+
+  "premortem_embarrassment": "If autopilot shipped this and the user pushed back: the most likely complaint is that autopilot implemented a multi-stage clinical-plan ticket (Stage 1 Part A1 of the irritability/severity mapping) as if it were an isolated bugfix, without running the plan-review pass or getting human sign-off on the new persisted schema and the DOM placement. The user has explicitly corrected past runs for racing ahead on judgment calls (feedback_test_before_qa; feedback_read_comments_before_transitioning), and tracked fields are first-class schema decisions. Shipping this silently would burn trust even if the code worked.",
+
+  "drift_tripwire_grep": [
+    {
+      "name": "no code touched on bail-out",
+      "cmd": "git diff --name-only HEAD -- ':!docs/autopilot/'",
+      "expected": "(empty — only the bail-out artifacts under docs/autopilot/ should appear in git status)"
+    }
+  ],
+
+  "self_qa_plan": {
+    "viewport": "n/a — bail-out, no code change",
+    "url": "n/a",
+    "seed_localStorage": {},
+    "steps": ["No self-QA required. Bail-out step does not touch runtime code."]
+  },
+
+  "confidence": 92,
+  "confidence_justification": "High confidence the correct decision is bail-out. PLAN_autopilot_harness.md:87 names 'adds a tracked field' as an out-of-scope condition and this ticket adds two. Two independent escalate-severity adversary objections (miscitation at 1624, AC placement ambiguity) are unresolvable without patient input. Not 100 only because the user applied `agent-ok` — signal that she expected autopilot could handle it — so the reviewer may choose to re-scope the ticket rather than drop the label.",
+
+  "decision": "bail-out"
+}

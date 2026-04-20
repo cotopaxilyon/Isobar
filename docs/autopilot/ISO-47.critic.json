@@ -1,0 +1,10 @@
+{
+  "ticket_id": "ISO-47",
+  "critic_model": "claude-opus-4-7[1m]",
+  "executor_decision": "bail-out",
+  "critic_decision": "bail-out",
+  "agreement": true,
+  "disagreements": [],
+  "would_have_chosen_same_approach": true,
+  "approach_critique": "Confirmed bail-out. Re-ran the four load-bearing checks: (a) index.html:1320-1337 shows ciData is the persisted check-in record and AC#6/#7 explicitly add two new keys to it — PLAN_autopilot_harness.md:87 names this exact condition ('Changes a localStorage data shape or adds a tracked field') as out of scope, so this alone is definitive; (b) index.html:1605 filters entries to type==='episode' and index.html:1618-1628 renders that episode list — the ticket's citation of :1624 as an irritability render site is unreachable because irritabilityLevel is a check-in field, not an episode field; (c) index.html:1474-1492 shows the Communication step has two sibling blocks (comm-options div + externalObservation section) and AC#1's 'below the communication options' does not disambiguate against the Agent Context's 'after the external-observation prompt' — two valid DOM placements, unresolvable without human input; (d) PLAN_autopilot_harness.md:71-99 confirms the cited allowlist and bail-out rules as stated. Any one of (a), (b), or (c) is independently sufficient for bail-out."
+}

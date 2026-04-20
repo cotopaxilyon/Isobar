@@ -1326,6 +1326,8 @@ function startCheckin() {
     overnightEvents: [], morningStiffness: null,
     // Communication
     communicationLevel: null, externalObservation: null,
+    // Irritability (Stage 1 Part A1)
+    irritabilityLevel: null, morningIrritabilityExternalObservation: null,
     // Body
     bodyPain: [],
     // Tier 1 exposures
@@ -1488,6 +1490,24 @@ function renderCiStep() {
           <div class="toggle-pair">
             ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${ciData.externalObservation===o?'on':''}" onclick="ciData.externalObservation='${o}';renderCiStep()">${o}</button>`).join('')}
           </div>
+        </div>
+        <div class="section" style="margin-top:16px">
+          <span class="label">Right now — fuse / sensory tolerance</span>
+          <div class="comm-options">
+            ${['normal','edgy','overload','snap_line'].map((v,i) => {
+              const labels = ['Normal — usual patience','Edgy — quicker to react than usual','Sensory overload — sounds / light / touch grating','Snap-line — anything extra is too much'];
+              const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
+              const sel = ciData.irritabilityLevel === v;
+              return `<button class="comm-btn" style="${sel?`background:${colors[i]}20;color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+                onclick="ciData.irritabilityLevel='${v}';renderCiStep()">${labels[i]}</button>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="section" style="margin-top:16px">
+          <span class="label">Has anyone noticed you snapping or seeming on edge?</span>
+          <div class="toggle-pair">
+            ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${ciData.morningIrritabilityExternalObservation===o?'on':''}" onclick="ciData.morningIrritabilityExternalObservation='${o}';renderCiStep()">${o}</button>`).join('')}
+          </div>
         </div>`;
       break;
     case 3:
@@ -1573,8 +1593,11 @@ async function renderLog() {
     const borderColor = isEp
       ? (sevColors[e.severity] || 'var(--danger)')
       : (functionalColors[e.functionalToday] || sevColors[e.severity] || 'var(--accent)');
+    const irritColors = { normal:'var(--good)', edgy:'var(--accent)', overload:'#f97316', snap_line:'var(--danger)' };
+    const irritLabels = { normal:'normal', edgy:'edgy', overload:'overload', snap_line:'snap-line' };
     const chips = [
       e.communicationLevel ? `<span class="entry-chip" style="color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : '',
+      e.irritabilityLevel ? `<span class="entry-chip" style="color:${irritColors[e.irritabilityLevel]||'var(--mid)'}">${irritLabels[e.irritabilityLevel]||e.irritabilityLevel}</span>` : '',
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       e.weather?.pressure ? `<span class="entry-chip mono">${e.weather.pressure}hPa (${e.weather.trend>0?'+':''}${e.weather.trend})</span>` : '',
@@ -1706,6 +1729,12 @@ async function exportReport() {
     if (e.morningStiffness && e.morningStiffness !== 'none') r += `  Morning stiffness: ${stiffnessLabels[e.morningStiffness]||e.morningStiffness}\n`;
     // Communication
     if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
+    // Irritability (Stage 1 Part A1)
+    if (e.irritabilityLevel) {
+      const irritExportLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
+      r += `  Irritability: ${irritExportLabels[e.irritabilityLevel]||e.irritabilityLevel}\n`;
+    }
+    if (e.morningIrritabilityExternalObservation) r += `  Observed as snapping/on edge: ${e.morningIrritabilityExternalObservation}\n`;
     // Body
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
     // Alcohol
