@@ -1636,8 +1636,9 @@ async function updateStats() {
   const recent = eps.slice(0,3);
   const sevColors = { similar:'var(--good)', somewhat:'var(--accent)', much_worse:'var(--warn)', far_away:'var(--danger)' };
   const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
+  const recentSection = document.getElementById('recent-section');
   if (recent.length) {
-    document.getElementById('recent-section').style.display = 'block';
+    recentSection.style.display = 'block';
     document.getElementById('recent-list').innerHTML = recent.map(e => {
       const d = new Date(e.timestamp);
       const bc = sevColors[e.severity] || 'var(--border)';
@@ -1649,6 +1650,9 @@ async function updateStats() {
         ${e.limbsAffected?.length ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">${e.limbsAffected.join(' → ')}</div>` : ''}
       </div>`;
     }).join('');
+  } else {
+    recentSection.style.display = 'none';
+    document.getElementById('recent-list').innerHTML = '';
   }
 }
 
