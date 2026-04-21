@@ -63,4 +63,15 @@ First Stage 2 ticket. Introduces `evening_checkin` as a new entry type and stand
 
 ## Ship Notes
 
-_(pending)_
+Local commit: `05419b2` (2026-04-21) — pushed at QA Pass per `feedback_push_gate`.
+
+Functional test executed via Playwright before Ready-for-QA transition (per `feedback_test_before_qa`):
+- EOD card renders when local hour ≥ configured hour, hides otherwise (verified at 22, threshold 20 visible / 23 hidden).
+- Snooze key `eod:snoozedUntilDate` stores `YYYY-MM-DD` (confirmed matches `localDateISO(new Date())` on click).
+- Snooze re-appearance honored on next-date (by key-comparison; full cross-day run deferred to user QA).
+- `Start` opens `#view-evening`; `Save` writes the empty `evening_checkin` record, toast fires, returns home, stats "Days tracked" ticks.
+- Log view shows the entry with type label *Evening check-in* and `var(--good)` accent; no chips / no severity label for shell-only data.
+- Settings dropdown defaults to "8pm" (persisted `settings:eveningHour === 20`), `onchange` persists new value, `renderEodCard()` re-evaluated.
+- No runtime console errors other than pre-existing favicon 404.
+
+Behavioral AC#1 (card appearance conditions) and AC#5 (log type label distinct) left unchecked on the parent ticket — user validates during QA per `feedback_acceptance_criteria`.
