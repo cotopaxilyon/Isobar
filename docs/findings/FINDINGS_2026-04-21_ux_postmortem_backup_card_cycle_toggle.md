@@ -106,6 +106,42 @@ Before approving a change, open the surface the user opens, scroll the way the u
 
 ---
 
+## Process changes (operational mechanics)
+
+The best practices above are the framing. These are the wire — the specific process changes this postmortem drives. Framing without mechanics decays; mechanics without framing become box-ticking. Both are needed.
+
+### 1. QA verdict mechanic
+
+Default posture is unchanged: **QA verifies that the ticket's ACs were met.** That is the operating baseline, not a limitation to be worked around. What changes is the handling of UX findings that surface during an AC-scoped run:
+
+- **UX findings on an AC-met ticket → PASS + UX Caution block.** The ticket passes; the QA comment includes a UX Caution block naming the finding; a sibling bug is filed immediately with a priority recommendation. UX observations do not block the originating ticket.
+- **FAIL is reserved for two cases, and only two:**
+  - (a) AC not met.
+  - (b) The implementation shipped an element, state, or control not named in the AC, and that element has a defect. The test is *shipped-new-and-broken*, not *pre-existing-and-noticed*. If the flaw is not in code introduced by this ticket, it is a separate bug — not grounds to FAIL the ticket that surfaced it.
+
+This preserves the discipline of AC-bounded evaluation while giving UX findings a routed, priority-tagged destination instead of either silent dropping or scope-creep FAILs.
+
+### 2. Full-surface re-review is trigger-fired, not default
+
+Reviewing every ticket against the full user surface at the point of entry is the correct framing (Best Practice #6) but the wrong default operationalisation — it doesn't scale, and making it mandatory recreates the scope-creep problem in a new direction. Instead, name scope-bounded evaluation as a specific failure mode to check for, and engage full-surface re-review only when explicit triggers fire:
+
+- Any change landing on the **Home surface** (primary daily-action region).
+- Any change that **renames or re-labels a control** in a cognitive-accessibility-constrained section.
+- Any change inside a group layout that **adds or reorders peer items** (Gestalt similarity risk).
+- Any change touching **warning-palette colours** (amber/red) outside an explicit alarm state.
+
+When any trigger fires, the reviewer opens the affected surface cold and applies Best Practice #6 before approving. Default reviews keep their current scope.
+
+### 3. Deferred-fix trigger gate
+
+A commit, plan, or ticket that names a conditional fallback ("Option B if X persists," "revisit if users report Y") is not accepted until the re-check trigger is also named. Acceptable triggers: a specific date, a usage-pattern threshold, a named QA pass, or a followup ticket filed in the same session. A fallback without a trigger is a comment, not a plan — reviewers are empowered to reject on that basis alone.
+
+### 4. Section-heading coherence check
+
+Added to the Isobar UX review checklist: for every group of controls presented together, does every item in the group match the promise the section header makes? If one item is a meta-attribution and the others are specific instances, the group is incoherent. Options: separate the meta control visually, rewrite the header to match, or remove the outlier. This check runs on any copy change inside a group layout.
+
+---
+
 ## Sources
 
 - [Visual Hierarchy in UX: Definition — Nielsen Norman Group](https://www.nngroup.com/articles/visual-hierarchy-ux-definition/)
