@@ -1,11 +1,11 @@
 ---
 id: TICK-019
 title: EOD snapshot block — communication + irritability + external observation
-status: pending
+status: ready-for-qa
 priority: high
 wave: 2
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-04-21
 plan: docs/plans/PLAN_irritability_and_severity_mapping.md
 test: null
 linear:
@@ -13,7 +13,7 @@ linear:
   test: ""
 depends-on: [TICK-018]
 supersedes: []
-shipped: ""
+shipped: 2026-04-21
 ---
 
 # TICK-019: EOD Snapshot Block
@@ -56,4 +56,22 @@ Adds the "right now" snapshot section to the evening check-in — the three fiel
 
 ## Ship Notes
 
-_(pending)_
+Stale citations in the spec (drafted pre-ISO-52; ISO-52 inserted ~121 lines). Actual locations when edits landed:
+- morning comm block: `index.html:1519-1527` (not 1483-1490)
+- morning ext-obs after comm: `:1528-1532` (not 1491-1494)
+- morning irritability block: `:1534-1544` (not 1498-1508)
+- morning irritability ext-obs: `:1546-1550` (not 1509-1513)
+- log card: `renderLog` at `:1613`, chips at `:1639-1640` (not 1590-1632 / 1600-1602)
+- `commColors` log `:1626`, export `:1690`; `irritColors` log `:1636`
+- `exportReport` starts `:1714`; `commLabels` `:1733` (not 1670-1792 / 1749)
+- `eodData` init inside `startEvening` at `:1949`; `renderEvening` at `:1958`; `#eod-content` is the target
+
+Implementation matches spec. Three evening-prefixed fields added to `eodData`, three form blocks rendered in `renderEvening`, log chips branch on `e.type === 'evening_checkin'` via `commVal`/`irritVal` locals, export filter broadened to include `evening_checkin` and three new labeled lines emitted inside the existing MORNING CHECK-INS loop (guarded by `if (e.evening...)` so morning entries skip silently and vice versa).
+
+Minor scope notes:
+- **Morning export label lifted out of the `if (e.irritabilityLevel)` block** — `irritExportLabels` was declared inside the conditional; moved to outer scope so the new `Evening irritability` line can reuse it. Behavior unchanged for morning entries.
+- **Export line for evening external-observation** labeled `Observed as snapping/on edge (evening)` rather than a bare mirror of the morning label, to disambiguate when the same-day morning+evening entries both print into the (pre-TICK-022) MORNING CHECK-INS section. TICK-022 will move evening fields to a dedicated section where the suffix can drop.
+- **`updateStats` checkin count NOT changed** — evening entries intentionally excluded from the home-screen "Check-ins" counter; TICK-022 likely adds a dedicated evening stat.
+- **SW cache NOT bumped** (per ticket instruction; no shell assets changed).
+
+Verified end-to-end in a live Playwright session: all three fields round-trip through DB → log chips → export; partial saves (only comm) render correctly; empty saves produce no chips and no export lines; no JS errors; morning path regression-checked (chips and export lines still identical for a synthetic morning entry).

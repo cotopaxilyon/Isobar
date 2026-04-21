@@ -1635,9 +1635,11 @@ async function renderLog() {
       : (functionalColors[e.functionalToday] || sevColors[e.severity] || 'var(--accent)');
     const irritColors = { normal:'var(--good)', edgy:'var(--accent)', overload:'#f97316', snap_line:'var(--danger)' };
     const irritLabels = { normal:'normal', edgy:'edgy', overload:'overload', snap_line:'snap-line' };
+    const commVal = isEod ? e.eveningCommunicationLevel : e.communicationLevel;
+    const irritVal = isEod ? e.eveningIrritabilityLevel : e.irritabilityLevel;
     const chips = [
-      e.communicationLevel ? `<span class="entry-chip" style="color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : '',
-      e.irritabilityLevel ? `<span class="entry-chip" style="color:${irritColors[e.irritabilityLevel]||'var(--mid)'}">${irritLabels[e.irritabilityLevel]||e.irritabilityLevel}</span>` : '',
+      commVal ? `<span class="entry-chip" style="color:${commColors[commVal]||'var(--mid)'}">${commVal}</span>` : '',
+      irritVal ? `<span class="entry-chip" style="color:${irritColors[irritVal]||'var(--mid)'}">${irritLabels[irritVal]||irritVal}</span>` : '',
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -1712,7 +1714,7 @@ async function updateStats() {
 async function exportReport() {
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
-  const cis = entries.filter(e => e.type === 'checkin');
+  const cis = entries.filter(e => e.type === 'checkin' || e.type === 'evening_checkin');
 
   const expCount = {};
   eps.forEach(e => (e.exposures||e.triggers||[]).forEach(t => { expCount[t] = (expCount[t]||0)+1; }));
@@ -1786,11 +1788,15 @@ async function exportReport() {
     // Communication
     if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
     // Irritability (Stage 1 Part A1)
+    const irritExportLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
     if (e.irritabilityLevel) {
-      const irritExportLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
       r += `  Irritability: ${irritExportLabels[e.irritabilityLevel]||e.irritabilityLevel}\n`;
     }
     if (e.morningIrritabilityExternalObservation) r += `  Observed as snapping/on edge: ${e.morningIrritabilityExternalObservation}\n`;
+    // Evening snapshot (Stage 2 — TICK-019). Dedicated EVENING CHECK-INS section comes in TICK-022.
+    if (e.eveningCommunicationLevel) r += `  Evening communication: ${commLabels[e.eveningCommunicationLevel]||e.eveningCommunicationLevel}\n`;
+    if (e.eveningIrritabilityLevel) r += `  Evening irritability: ${irritExportLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
+    if (e.eveningExternalObservation) r += `  Observed as snapping/on edge (evening): ${e.eveningExternalObservation}\n`;
     // Body
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
     // Alcohol
@@ -1950,6 +1956,9 @@ function startEvening() {
     type: 'evening_checkin',
     timestamp: now.toISOString(),
     entryDate: localDateISO(now),
+    eveningCommunicationLevel: null,
+    eveningIrritabilityLevel: null,
+    eveningExternalObservation: null,
   };
   switchView('evening');
   renderEvening();
@@ -1958,12 +1967,37 @@ function startEvening() {
 function renderEvening() {
   document.getElementById('eod-title').textContent = 'Evening Check-in';
   document.getElementById('eod-sub').textContent = '';
-  document.getElementById('eod-content').innerHTML =
-    '<div class="section">' +
-      '<div style="color:var(--dim);font-size:13px;line-height:1.6">' +
-        'More sections will land in follow-up updates. For now, tap Save to store this entry.' +
-      '</div>' +
-    '</div>';
+  document.getElementById('eod-content').innerHTML = `
+    <div class="section">
+      <span class="label">Right now — communication</span>
+      <div class="comm-options">
+        ${['normal','quieter','shortened','brief'].map((v,i) => {
+          const labels = ['Talking easily — normal back and forth','Quieter than usual — responding, not initiating','Shorter responses — harder to elaborate','Brief only — yes/no or less'];
+          const colors = ['var(--good)','var(--warn)','#f97316','var(--danger)'];
+          const sel = eodData.eveningCommunicationLevel === v;
+          return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${colors[i]} 12%, transparent);color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+            onclick="eodData.eveningCommunicationLevel='${v}';renderEvening()">${labels[i]}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:16px">
+      <span class="label">Right now — fuse / sensory tolerance</span>
+      <div class="comm-options">
+        ${['normal','edgy','overload','snap_line'].map((v,i) => {
+          const labels = ['Normal — usual patience','Edgy — quicker to react than usual','Sensory overload — sounds / light / touch grating','Snap-line — anything extra is too much'];
+          const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
+          const sel = eodData.eveningIrritabilityLevel === v;
+          return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${colors[i]} 12%, transparent);color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+            onclick="eodData.eveningIrritabilityLevel='${v}';renderEvening()">${labels[i]}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:16px">
+      <span class="label">Did anyone today comment on you seeming quiet, snappy, or off?</span>
+      <div class="toggle-pair">
+        ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${eodData.eveningExternalObservation===o?'on':''}" onclick="eodData.eveningExternalObservation='${o}';renderEvening()">${o}</button>`).join('')}
+      </div>
+    </div>`;
   document.getElementById('eod-actions').innerHTML =
     '<button class="btn" onclick="saveEod()">Save</button>';
 }
