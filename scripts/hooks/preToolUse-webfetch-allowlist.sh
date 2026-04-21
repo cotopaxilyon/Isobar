@@ -52,15 +52,16 @@ case "$rest" in
 esac
 
 case "$host" in
-  www.hopkinsmedicine.org) exit 0 ;;
-  dev.to)                  exit 0 ;;
+  www.hopkinsmedicine.org)       exit 0 ;;
+  dev.to)                        exit 0 ;;
+  mesonet.agron.iastate.edu)     exit 0 ;;
 esac
 
 jq -cn --arg u "$url" --arg h "$host" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
     permissionDecision: "deny",
-    permissionDecisionReason: ("WebFetch denied: " + (if $h == "" then ("unparsable url " + $u) else ("host " + $h) end) + " is not in the allowlist (www.hopkinsmedicine.org, dev.to). To add a domain, edit scripts/hooks/preToolUse-webfetch-allowlist.sh.")
+    permissionDecisionReason: ("WebFetch denied: " + (if $h == "" then ("unparsable url " + $u) else ("host " + $h) end) + " is not in the allowlist (www.hopkinsmedicine.org, dev.to, mesonet.agron.iastate.edu). To add a domain, edit scripts/hooks/preToolUse-webfetch-allowlist.sh.")
   }
 }'
 exit 0
