@@ -68,6 +68,15 @@ Single-pass behaviour:
 - `docs/autopilot/` — drafted plans for tickets the autopilot couldn't handle autonomously. Mirrors `docs/qa-fail/`. Each file has `status: pending-review` frontmatter and is gated behind human approval before code changes.
 - `.claude/autopilot-seen.json` — per-session deduplication, optional. Low-priority since the `agent-ok` label already gates intake.
 
+## Ticket intake preconditions
+
+Mirrors `docs/PROCESS.md` §"Before `agent-ok`". These are requirements on the *ticket as written*, independent of what the ticket's change is about — a ticket that fails either precondition is not machine-processable, regardless of whether its content is in scope. The adversary and critic gates reject by citing whichever item fails, rather than inventing ad-hoc objections per ticket.
+
+- For every `index.html:<N>` citation in Agent Context: `grep -n` for the symbol and confirm the cited line sits inside the right render path (check-in vs. episode vs. morning, etc.). Origin: ISO-47 cited `:1624` as a check-in surface; it belonged to the episode render path, and the executor edited the wrong scope.
+- For every AC that describes DOM placement: the AC names one sibling + one relative position (`"directly after <div class='comm-options'> and before <section id='externalObservation'>"`), not a region (`"below the communication options"`). Regions are unverifiable; sibling+position is a grep target.
+
+Adversary behaviour: if either precondition fails, emit a `block`-severity objection pointing at this section. Critic behaviour: if the dossier doesn't cite verified greps / named siblings for the surfaces it touches, `agreement: false`.
+
 ## Scope — allowlist and bailout conditions
 
 ### In scope (autopilot may act)

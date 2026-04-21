@@ -142,6 +142,10 @@ Every PLAN must, at the top, cite the principles it **honors** and the ones it *
 ### 26. Does the plan name what it is *not* doing?
 **Flag if:** scope boundaries are implicit. Plans should explicitly call out what's out of scope and what's deferred — this is where half-finished implementations come from.
 
+### 27. Does every claim about existing code resolve to real, reachable code?
+**Flag if:** the plan cites a `file:line` that wasn't grep-verified in the same session, or asserts that a recovery path / existing flow "handles" a case without naming (a) the function, (b) its call site, and (c) the state preconditions to reach it. Existence ≠ reachability — a symbol can exist in the codebase and still be unreachable from the state the plan claims it covers.
+**See:** `PROCESS.md` — Verification discipline for authored claims. Real incident: ISO-42 Implementation Notes cited a fictional `DB.remove('pin')` recovery path that shaped the risk framing before UAT caught it.
+
 ---
 
 ## How to use

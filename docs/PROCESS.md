@@ -113,6 +113,26 @@ Date: ...
 UAT: .../... PASS
 ```
 
+## Verification discipline for authored claims
+
+Tickets, plans, and Linear comments make claims about existing code. Those claims shape the work that follows — a false claim imports debt before the first line of implementation. Treat prose *about* code with the same verification discipline as editing code.
+
+Two rules:
+
+- **Citation requires verification.** Any `file:line` reference in a ticket, plan, or Linear comment must come from a `Read` or `Grep` in the same session. If citing from memory, drop the line number and name the symbol instead — then grep for it before submitting. Line numbers are cheap confidence; they look like verification even when they aren't.
+- **Existence ≠ reachability.** "Recovery path exists" / "flow X works" / "this is handled" are two claims, not one: the symbol exists AND it is callable from the state being described. Verify both. Spell out (a) the function, (b) its call site, (c) the state preconditions for reaching it.
+
+When a claim can't be cheaply verified, write the uncertainty into the note: _"Lockout recovery: needs verification — is `X` reachable from locked state?"_ Confident fiction survives review; explicit uncertainty gets caught.
+
+**Origin:** ISO-42 Implementation Notes cited a fictional `DB.remove('pin')` recovery path at `index.html:657` (real call site `:842`, only reachable when already unlocked). The false claim closed the lockout-risk discussion prematurely; UAT on 2026-04-19 caught it only after implementation was complete.
+
+## Before `agent-ok`
+
+Before tagging a ticket `agent-ok`, walk this checklist. The `/autopilot` adversary and critic cite these as grounds to reject — failing them quietly becomes drift that the absent human gate would have caught.
+
+- For every `index.html:<N>` citation in Agent Context: run `grep -n` for the symbol you claim to be touching and confirm the cited line is inside the right scope (e.g. check-in render path vs. episode render path — the exact trap ISO-47 hit at `:1624`).
+- For every AC that describes DOM placement: name one sibling + one relative position (`"directly after <div class='comm-options'> and before <section id='externalObservation'>"`), not a region like `"below the communication options."`
+
 ## Checking off acceptance criteria
 
 A checked box on the ticket means **verified**, not **attempted**. Split them by who checks when:

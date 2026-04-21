@@ -12,6 +12,9 @@ Treat it as a table of contents, not a spec.
 ## Before a PLAN goes to implementation
 Walk [`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md) against the plan doc. It's the product-level analogue of the architecture grep — a mechanical pass that catches the kind of issues that surfaced in the irritability-plan critical review (16 items).
 
+## Before adopting a ticket's "Suggested Fix"
+A ticket's Suggested Fix is a hypothesis from past-me, not an instruction. Propose the fix from first principles first, then compare to the ticket's suggestion. If they disagree, name the disagreement out loud instead of picking one silently. Open every `feedback_*.md` memory whose topic touches the affected surface (layout, copy, UX, data) and reconcile before drafting the plan.
+
 ## Where things live
 - `index.html` — the entire app (single-file PWA)
 - `sw.js`, `manifest.json`, `icon.svg` — PWA shell

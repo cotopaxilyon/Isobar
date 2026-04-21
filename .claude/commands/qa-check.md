@@ -15,10 +15,11 @@ Run one pass of the QA watcher logic. Capability constraints from [`docs/plans/P
 1. Query Linear (team Isobar) for tickets currently in status `QA Pass` or `QA Fail`.
 2. Load `.claude/qa-watcher-seen.json` to skip tickets already handled; update it after processing.
 3. For each `QA Pass` ticket:
+   - **Read the QA comment before anything else.** `list_comments` and read the most recent UAT write-up first. A "PASS WITH ISSUES" verdict means the ticket is still passable but the comment logged advisories — new bugs spawned as separate tickets, ticket-doc hygiene issues (fictional file paths, inaccurate claims), product gaps, informational notes. For each advisory: decide whether it needs a new backlog ticket, a doc amendment on the current ticket, or just a note in the final summary. Do not transition the ticket silently past the comment.
    - Verify code-verifiable acceptance criteria (behavioral ACs are the QA agent's job — do not re-check those).
    - Commit as `ISO-NNN: <title>` with `Linear: <url>` in the body. No Claude/AI attribution.
    - Push directly to `main` (no feature branches).
-   - Transition the Linear issue to `Done` and post a comment with the commit SHA.
+   - Transition the Linear issue to `Done` and post a comment with the commit SHA. Post advisory follow-ups (new tickets filed, doc edits made) in the summary at step 6.
 4. For each `QA Fail` ticket:
    - Investigate root cause: read relevant code, `git log`, and research medical/POTS/PWA best practices if applicable.
    - Write `docs/qa-fail/ISO-NNN.md` with `status: pending-review` frontmatter.

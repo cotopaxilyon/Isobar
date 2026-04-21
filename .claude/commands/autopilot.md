@@ -26,6 +26,12 @@ Run one pass of the autopilot harness. Full design spec: [`docs/plans/PLAN_autop
 12. Commit locally with message `ISO-NNN: <title>` and the Linear URL in the body. No AI attribution (global rule). **Do not push** — the commit stays on local `main` until UAT passes. `qa-check` pushes after the user flips the ticket to `QA Pass`. (No feature branches: commits go straight onto local `main`.)
 13. Transition Linear parent to `Ready for QA`. Not `Done` — user does final acceptance.
 14. Post a Linear comment with: commit SHA, paths to `ISO-NNN.dossier.json` and `ISO-NNN.critic.json`, and any `flag`-severity adversary observations. If `docs/autopilot/ISO-NNN.scope-advisory.md` exists (written by the Wave 10 post-commit hook when the diff spreads beyond `dossier.files_to_touch`), read it and include the Over-reach file list in the comment so the user sees it at QA time. Comment body must start with an allowed opener (e.g. `Shipped in`) and use only chars in the Wave 4 char class — no em-dash, no quotes, no `@`, no `?=&`. Do **not** flag references to `tests/client-isobar/uat-wave-N.spec.ts` — those point to a separate testing agent's workspace, not this repo (per the plan's Q3). Do not grep for or attempt to read those paths.
+14a. **Deviation disclosure (required if applicable).** If `dossier.approach_chosen` does not match the ticket's "Suggested Fix" section verbatim — whether the deviation is a copy change, a different file, a skipped step, or a scope cut — two writes are mandatory **before** Step 13's state transition (if reached here without doing them, issue them now and treat as a process correction):
+    - **Comment:** a section labeled `**Deviation from Suggested Fix:**` stating (a) what the Suggested Fix said, (b) what was shipped instead, (c) the driving memory/principle/finding, (d) verification evidence. Can be folded into the Step 14 comment or posted as a separate comment.
+    - **Description annotation:** use `save_issue` to prepend a callout to the ticket description:
+      > **Shipped deviation (YYYY-MM-DD):** fix does not match the "Suggested Fix" section below. See comment dated YYYY-MM-DD for rationale.
+
+      Do not delete the original Suggested Fix text — prepend above it so history is intact. Rationale in `feedback_deviation_comment.md`: QA reads the description first; a contradictory ticket wastes their cycle.
 15. Stop. One ticket per invocation. Report: ticket ID, status reached, commit SHA (or bailout reason), critic agreement (true/false).
 
 **Hard stops — never do any of these:**
