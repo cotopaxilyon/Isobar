@@ -45,7 +45,19 @@ Items here are not yet specced. Each requires a research phase before implementa
 
 ---
 
-## 4. Reminders & Notifications
+## 4. Migraine Insight parallel trial
+
+**Current state:** A behavioral cross-check, not a code task. User is running [Migraine Insight](https://migraineinsight.com/) alongside Isobar for three months as a parallel signal source. Migraine Insight is the 10K-user dwell-based location prior art cited in `PLAN_trigger_trap.md`; running it in parallel gives an external benchmark for whether Isobar's primer-window exports surface the same patterns an established passive-sensing tool would.
+
+**Trial window:** 2026-04-19 → 2026-07-19.
+
+**Compare at end:** on trial end, pull Migraine Insight's pattern output for the period and diff it against Isobar's primer-window export for the same window. Disagreements are the interesting rows — they point either to gaps in Isobar's exposure capture or to Migraine Insight's model overfitting to its own features. No integration, no shared data — just a side-by-side human comparison.
+
+**Output:** a short findings note (under `docs/findings/`) on trial end summarizing which signals agreed, which diverged, and any follow-up plans triggered by the comparison.
+
+---
+
+## 5. Reminders & Notifications
 
 **Current state:** The app has no reminder system. Consistent logging depends on memory. For a morning check-in specifically, a scheduled prompt would meaningfully improve data consistency — which is the single biggest factor in whether the longitudinal data is clinically useful.
 

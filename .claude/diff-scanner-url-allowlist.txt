@@ -18,6 +18,15 @@ api.open-meteo.com
 w3.org/2000/svg
 unpkg.com/dexie
 
+# Research citations in PLAN_trigger_trap.md + ROADMAP §4 (audited 2026-04-19)
+americanmigrainefoundation.org
+pubmed.ncbi.nlm.nih.gov
+pmc.ncbi.nlm.nih.gov
+neurologylive.com
+jmir.org
+migraineinsight.com
+bearable.app
+
 # Deliberately NOT allowlisted: shorteners (bit.ly, tinyurl.com) appear
 # inside vendor/dexie.min.js — that file is blocked from agent writes via
 # the Wave 8 write-path allowlist, so they shouldn't appear in agent-staged
