@@ -1602,6 +1602,15 @@ async function renderLog() {
       e.irritabilityLevel ? `<span class="entry-chip" style="color:${irritColors[e.irritabilityLevel]||'var(--mid)'}">${irritLabels[e.irritabilityLevel]||e.irritabilityLevel}</span>` : '',
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
+      ...(() => {
+        const cp = e.cyclePhaseProxy; if (!cp) return [];
+        const out = [];
+        if (cp.breastTender) out.push('<span class="entry-chip">breast tenderness</span>');
+        if (cp.cycleRelatedDay ?? cp.moodShift) out.push('<span class="entry-chip">cycle-related day</span>');
+        if (cp.bloating) out.push('<span class="entry-chip">bloating</span>');
+        if (cp.libido && cp.libido !== 'same') out.push(`<span class="entry-chip">libido ${cp.libido}</span>`);
+        return out;
+      })(),
       e.weather?.pressure ? `<span class="entry-chip mono">${e.weather.pressure}hPa (${e.weather.trend>0?'+':''}${e.weather.trend})</span>` : '',
       isCi && e.sleepHours != null ? `<span class="entry-chip">${e.sleepHours}h sleep</span>` : '',
     ].filter(Boolean).join('');
