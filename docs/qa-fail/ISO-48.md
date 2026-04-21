@@ -1,12 +1,13 @@
 ---
 ticket: ISO-48
 title: TICK-014 Cycle-phase moodShift → cycleRelatedDay rename
-status: resolved
+status: shipped
 drafted: 2026-04-20
 resolved: 2026-04-20
+shipped: 2026-04-21
 commits:
-  - 6513dff — ISO-48: rename cycle-phase moodShift → cycleRelatedDay (local only)
-  - fix-forward — ISO-48/ISO-51: render cycle-proxy chips in log + bump SW cache v9 → v10 (local only, QA-gated)
+  - 6513dff — ISO-48: rename cycle-phase moodShift → cycleRelatedDay
+  - 07386af — ISO-48: render cycle-proxy chips in log view + SW cache bump (closes ISO-51)
 ---
 
 # Fix plan — ISO-48
