@@ -418,6 +418,17 @@
         </button>
       </div>
 
+      <!-- Evening check-in prompt (after configured hour) -->
+      <div class="card" id="eod-card" style="display:none;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.06)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="min-width:0;flex:1">
+            <div class="setting-label" id="eod-card-title">Evening check-in</div>
+            <div class="setting-sub" id="eod-card-sub">Optional, ~1 min</div>
+          </div>
+          <div id="eod-card-actions" style="display:flex;gap:6px;flex-shrink:0"></div>
+        </div>
+      </div>
+
       <!-- Backup prompt (weekly) -->
       <div class="card" id="backup-card" style="display:none;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06)">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
@@ -481,6 +492,21 @@
     </div>
   </div>
 
+  <!-- EVENING CHECK-IN FORM VIEW -->
+  <div id="view-evening" class="view">
+    <div style="padding:0 16px">
+      <div class="step-header">
+        <button class="back-btn" onclick="goHome()">←</button>
+        <div>
+          <div class="step-title" id="eod-title"></div>
+          <div class="step-sub" id="eod-sub"></div>
+        </div>
+      </div>
+      <div class="step-content" id="eod-content"></div>
+      <div class="step-actions" id="eod-actions"></div>
+    </div>
+  </div>
+
   <!-- LOG VIEW -->
   <div id="view-log" class="view">
     <div class="page-header">
@@ -511,6 +537,17 @@
         <div id="import-panel" style="padding:0 14px 14px"></div>
         <div class="setting-row" id="storage-indicator-row">
           <div><div class="setting-label">Storage</div><div class="setting-sub" id="storage-indicator-sub">Checking…</div></div>
+        </div>
+        <div class="setting-row" id="eod-hour-row">
+          <div><div class="setting-label">Evening reminder hour</div><div class="setting-sub">When the evening check-in prompt appears (default 8pm)</div></div>
+          <select id="eod-hour-select" onchange="setEodHour(this.value)" style="padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px">
+            <option value="18">6pm</option>
+            <option value="19">7pm</option>
+            <option value="20">8pm</option>
+            <option value="21">9pm</option>
+            <option value="22">10pm</option>
+            <option value="23">11pm</option>
+          </select>
         </div>
         <div class="setting-row" style="border:none">
           <div><div class="setting-label" style="color:var(--danger)">Clear All Data</div><div class="setting-sub">Permanently delete all entries</div></div>
@@ -1591,6 +1628,7 @@ async function renderLog() {
     const d = new Date(e.timestamp);
     const isEp = e.type === 'episode';
     const isCi = e.type === 'checkin';
+    const isEod = e.type === 'evening_checkin';
     // Check-in border: prefer functionalToday (new), fall back to severity (legacy)
     const borderColor = isEp
       ? (sevColors[e.severity] || 'var(--danger)')
@@ -1618,13 +1656,15 @@ async function renderLog() {
     const sevKey = isCi ? (e.functionalToday || e.severity) : e.severity;
     const sevLabel = isCi ? (functionalLabels[e.functionalToday] || (e.severity ? e.severity.replace(/_/g,' ') : '')) : (e.severity ? e.severity.replace(/_/g,' ') : '');
     const sevColor = isCi ? (functionalColors[e.functionalToday] || sevColors[e.severity] || 'var(--mid)') : (sevColors[e.severity] || 'var(--mid)');
-    return `<div class="entry-card" style="border-left-color:${borderColor}">
+    const typeLabel = isEp ? 'Episode' : isEod ? 'Evening check-in' : 'Check-in';
+    const typeColor = isEp ? 'var(--danger)' : isEod ? 'var(--good)' : 'var(--accent)';
+    return `<div class="entry-card" style="border-left-color:${isEod ? 'var(--good)' : borderColor}">
       <div class="entry-header">
         <div>
-          <div class="entry-type" style="color:${isEp?'var(--danger)':'var(--accent)'}">${isEp?'Episode':'Check-in'}</div>
+          <div class="entry-type" style="color:${typeColor}">${typeLabel}</div>
           <div class="entry-time">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
         </div>
-        ${sevLabel ? `<span style="font-size:12px;color:${sevColor};font-weight:600">${sevLabel}</span>` : ''}
+        ${sevLabel && !isEod ? `<span style="font-size:12px;color:${sevColor};font-weight:600">${sevLabel}</span>` : ''}
       </div>
       <div class="entry-chips">${chips}</div>
       ${e.notes ? `<div class="entry-notes">${e.notes}</div>` : ''}
@@ -1635,6 +1675,7 @@ async function renderLog() {
 // ── STATS ─────────────────────────────────────────────────────
 async function updateStats() {
   renderBackupCard();
+  renderEodCard();
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
@@ -1811,7 +1852,7 @@ function switchView(name) {
   document.getElementById('app').scrollTop = 0;
   if (name === 'log') renderLog();
   if (name === 'home') updateStats();
-  if (name === 'settings') renderStorageIndicator();
+  if (name === 'settings') { renderStorageIndicator(); renderEodHourSetting(); }
 }
 
 const BACKUP_INTERVAL_MS = 7 * 86400000;
@@ -1898,6 +1939,78 @@ async function renderStorageIndicator() {
     sub.textContent = 'Best-effort — back up regularly';
     sub.style.color = 'var(--warn)';
   }
+}
+
+// ── EVENING CHECK-IN (TICK-018) ───────────────────────────────
+let eodData = {};
+
+function startEvening() {
+  const now = new Date();
+  eodData = {
+    type: 'evening_checkin',
+    timestamp: now.toISOString(),
+    entryDate: localDateISO(now),
+  };
+  switchView('evening');
+  renderEvening();
+}
+
+function renderEvening() {
+  document.getElementById('eod-title').textContent = 'Evening Check-in';
+  document.getElementById('eod-sub').textContent = '';
+  document.getElementById('eod-content').innerHTML =
+    '<div class="section">' +
+      '<div style="color:var(--dim);font-size:13px;line-height:1.6">' +
+        'More sections will land in follow-up updates. For now, tap Save to store this entry.' +
+      '</div>' +
+    '</div>';
+  document.getElementById('eod-actions').innerHTML =
+    '<button class="btn" onclick="saveEod()">Save</button>';
+}
+
+async function saveEod() {
+  const key = `entry:${new Date(eodData.timestamp).getTime()}`;
+  if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
+  await DB.set(key, eodData);
+  showToast('Evening check-in saved ✓');
+  goHome();
+  updateStats();
+}
+
+async function renderEodCard() {
+  const card = document.getElementById('eod-card');
+  if (!card) return;
+  const now = new Date();
+  const storedHour = await DB.get('settings:eveningHour');
+  const hour = (storedHour == null) ? 20 : Number(storedHour);
+  const todayKey = localDateISO(now);
+  if (now.getHours() < hour) { card.style.display = 'none'; return; }
+  const snoozedDate = await DB.get('eod:snoozedUntilDate');
+  if (snoozedDate === todayKey) { card.style.display = 'none'; return; }
+  const entries = await DB.allEntries();
+  const hasEodToday = entries.some(e => e.type === 'evening_checkin' && e.entryDate === todayKey);
+  if (hasEodToday) { card.style.display = 'none'; return; }
+  document.getElementById('eod-card-actions').innerHTML =
+    '<button class="btn small secondary" onclick="snoozeEod()">Later</button>' +
+    '<button class="btn small" onclick="startEvening()">Start</button>';
+  card.style.display = 'block';
+}
+
+async function snoozeEod() {
+  await DB.set('eod:snoozedUntilDate', localDateISO(new Date()));
+  renderEodCard();
+}
+
+async function renderEodHourSetting() {
+  const sel = document.getElementById('eod-hour-select');
+  if (!sel) return;
+  const stored = await DB.get('settings:eveningHour');
+  sel.value = String(stored == null ? 20 : stored);
+}
+
+async function setEodHour(v) {
+  await DB.set('settings:eveningHour', Number(v));
+  await renderEodCard();
 }
 
 // ── BACKUP IMPORT (TICK-012) ──────────────────────────────────
