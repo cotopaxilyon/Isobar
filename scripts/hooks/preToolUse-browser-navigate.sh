@@ -21,6 +21,8 @@ url=$(printf '%s' "$input" | jq -r '.tool_input.url // empty')
 case "$url" in
   http://127.0.0.1:8765|http://127.0.0.1:8765/*) exit 0 ;;
   http://localhost:8765|http://localhost:8765/*) exit 0 ;;
+  http://127.0.0.1:8000|http://127.0.0.1:8000/*) exit 0 ;;
+  http://localhost:8000|http://localhost:8000/*) exit 0 ;;
 esac
 
 jq -cn --arg u "$url" '{

@@ -1663,8 +1663,8 @@ async function renderLog() {
     const costRamp = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
     const costFieldSpec = [
       { field: 'costActivities',     values: ['all','most','some','almost_none'],         labels: ['all','most','some','almost none'] },
-      { field: 'costConnection',     values: ['easy','muted','withdrew','couldnt'],       labels: ['easy','muted','withdrew',"couldn't"] },
-      { field: 'costFun',            values: ['had_energy','a_little','none','avoided'],  labels: ['had energy','a little','none','avoided'] },
+      { field: 'costConnection',     values: ['easy','muted','withdrew','couldnt'],       labels: ['easy','muted','distant','shut down'] },
+      { field: 'costFun',            values: ['had_energy','a_little','none','avoided'],  labels: ['lots','a little','none','avoided'] },
       { field: 'costSleepReadiness', values: ['tired_good','wiped','wired','overwhelmed'],labels: ['tired-good','wiped','wired','overwhelmed'] },
     ];
     const chips = [
@@ -1882,8 +1882,8 @@ async function exportReport() {
     const eodIrritLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
     const costLabels = {
       costActivities:     { all:'all', most:'most', some:'some', almost_none:'almost none' },
-      costConnection:     { easy:'easy', muted:'muted', withdrew:'withdrew', couldnt:"couldn't" },
-      costFun:            { had_energy:'had energy', a_little:'a little', none:'none', avoided:'avoided' },
+      costConnection:     { easy:'easy', muted:'muted', withdrew:'distant', couldnt:'shut down' },
+      costFun:            { had_energy:'lots', a_little:'a little', none:'none', avoided:'avoided' },
       costSleepReadiness: { tired_good:'tired-good', wiped:'wiped', wired:'wired', overwhelmed:'overwhelmed' },
     };
     const trajMap = { better:'got better', same:'about the same', worse:'got worse', up_down:'up and down' };
@@ -2098,12 +2098,11 @@ function renderEvening() {
       </div>
     </div>
     <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-      <span class="label">What did today cost across…</span>
       ${[
-        { field: 'costActivities',      sub: 'Activities planned',      values: ['all','most','some','almost_none'],       labels: ['all','most','some','almost none'] },
-        { field: 'costConnection',      sub: 'Connection with people',  values: ['easy','muted','withdrew','couldnt'],     labels: ['easy','muted','withdrew',"couldn't"] },
-        { field: 'costFun',             sub: 'Things for fun',          values: ['had_energy','a_little','none','avoided'],labels: ['had energy','a little','none','avoided'] },
-        { field: 'costSleepReadiness',  sub: 'Sleep readiness now',     values: ['tired_good','wiped','wired','overwhelmed'], labels: ['tired-good','wiped','wired','overwhelmed'] },
+        { field: 'costActivities',      sub: "Did you get through today's plans?", values: ['all','most','some','almost_none'],       labels: ['All — got everything done','Most — got through nearly all of it','Some — made partial progress','Almost none — barely got to any of it'] },
+        { field: 'costConnection',      sub: 'Did you connect with people today?',  values: ['easy','muted','withdrew','couldnt'],     labels: ['Easy — felt natural','Muted — there but dialed down','Distant — pulled back from people',"Shut down — couldn't engage"] },
+        { field: 'costFun',             sub: 'Did you have fun today?',          values: ['had_energy','a_little','none','avoided'],labels: ['Lots — plenty of fun today','A little — a bit of fun fit in','None — no fun today','Avoided — turned it away'] },
+        { field: 'costSleepReadiness',  sub: 'Are you ready for sleep now?',     values: ['tired_good','wiped','wired','overwhelmed'], labels: ['Tired-good — body ready to sleep','Wiped — too drained to wind down',"Wired — can't settle, mind still on",'Overwhelmed — too activated to rest'] },
       ].map(row => {
         const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
         return `
