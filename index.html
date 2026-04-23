@@ -2210,6 +2210,18 @@ async function migrateMealsToHistory() {
   }
 }
 
+async function mostRecentMeal() {
+  let best = null, bestMs = -Infinity;
+  for (const k of await DB.keys('meal:entry:')) {
+    const m = await DB.get(k);
+    if (!m || !m.timestamp) continue;
+    const mMs = new Date(m.timestamp).getTime();
+    if (isNaN(mMs)) continue;
+    if (mMs > bestMs) { best = m; bestMs = mMs; }
+  }
+  return best;
+}
+
 async function findMealForEpisode(episodeTs) {
   const epMs = new Date(episodeTs).getTime();
   if (isNaN(epMs)) return null;
@@ -2233,7 +2245,7 @@ async function fastedHoursFor(episodeTs) {
 }
 
 async function logMeal(editExisting) {
-  const existing = editExisting ? await DB.get('meal:last') : null;
+  const existing = editExisting ? await mostRecentMeal() : null;
   const prefill = existing ? new Date(existing.timestamp) : new Date();
   const prefillSize = existing?.mealSize || null;
 
@@ -2280,8 +2292,6 @@ async function saveMeal() {
   }
   const newTsMs = ts.getTime();
   await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
-  const existing = (await DB.get('meal:last')) || {};
-  await DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
   showToast('Meal logged ✓');
   renderMealCard();
 }
@@ -2352,7 +2362,7 @@ async function renderMealCard() {
   const el = document.getElementById('meal-card');
   if (!el) return;
 
-  const last = await DB.get('meal:last');
+  const last = await mostRecentMeal();
   const now = new Date();
 
   if (!last) {
