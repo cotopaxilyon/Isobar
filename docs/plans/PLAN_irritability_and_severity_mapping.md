@@ -338,17 +338,17 @@ The form structure above is the **pre-refold v1 blueprint.** The critical-review
 **From Item 11 — multi-shift trajectory capture:**
 - Question 1's `trajectoryShiftTime` becomes an expanded section when user selects `up_down`. Up to 3 shift timestamps with direction (better/worse), all optional. Single-trajectory days unchanged.
 
-**From Item 6 + Item 10 — behavioral-anchor fields (new EOD fields):**
-- **Social/irritability behavioral anchors** (locked in Item 3; expanded in Item 6): "snapped at someone today Y/N," "withdrew from planned contact Y/N," +1–2 TBD.
-- **Cognition behavioral-anchor Y/N list** (morning + evening paired): ~3 candidates from ["lost track mid-sentence," "had to re-read to understand," "couldn't find a word"] — final list TBD at Stage 1 ticket design.
-- **Fatigue behavioral anchors** (EOD): "napped today Y/N," "went to bed earlier than planned Y/N."
-- **Pain behavioral anchors** (EOD, supplementing the Likert): "avoided a specific movement Y/N," "took unscheduled medication Y/N."
+**From Item 6 + Item 10 — behavioral-anchor fields (LOCKED 2026-04-23):**
+- **Social/irritability behavioral anchors** (EOD, 4 items): snapped, withdrew, cancelled/shortened interaction, responded more sharply than warranted.
+- **Cognition behavioral-anchor Y/N list** (morning + evening paired — EXCEPTION to EOD-only, 3 items): lost track mid-sentence, had to re-read to understand, couldn't find a word. Feeds `cognition` composite axis at weight 0.15 via `peakOfPaired`.
+- **Fatigue behavioral anchors** (EOD, 3 items): napped, bed earlier than planned, rested/lay-down (not a nap).
+- **Pain behavioral anchors** (EOD, 3 items, supplementing the Likert): avoided a specific movement, took unscheduled medication, pain at rest.
 
 **From Item 10 — three load-type anchor sets (new EOD sections):**
 
 - **Cognitive load — 8 items, 4 core, weighted** (fully specced, see walkthrough). Items include: sustained critical thinking >2h, masking hybrid >1h/>2h, high-sensory >4h, emotional regulation composure >30min, communication production, EF+logistics work, anticipatory/managerial load.
-- **Social load** — framework locked (Framing A, 6–8 items, 4 core, weighted); items TBD during Stage 1 ticket design using same walkthrough method.
-- **Emotional load** — framework locked; items TBD.
+- **Social load — 7 items, 4 core, weighted** (fully specced 2026-04-23, see walkthrough). Items include: medical/bureaucratic self-advocacy, difficult interpersonal interaction, group setting ≥3 people ≥1h, sustained responsive availability, post-hoc social processing, new social context, scheduled social obligation kept.
+- **Emotional load — 5 items, 4 core, weighted** (fully specced 2026-04-23, see walkthrough; deliberate deviation from 6-item floor — see rationale in Item 10). Items include: conflict/rupture event, significant news or awaited outcome, dread/anxiety loop ≥1h, witnessed distress, emotional flashback.
 
 **From Item 7 — `painEpisodePeak` write-time denormalization:**
 - When an episode is saved, its peak-pain value is also written to the day's EOD record field `painEpisodePeak`. No direct EOD form question; automatic on episode save.
@@ -929,7 +929,8 @@ The plan ships in **six stages** (five original + one precursor added by Items 1
 
 2. **Stage 2 — Part C (evening check-in) + behavioral anchors + load tracking (Items 6, 10, 11).** New entry type, new home-screen card, all new fields including:
    - Cognitive load 8-item anchor set (4 core + 3 extended, weighted).
-   - Social load + emotional load anchor sets (framework locked; items TBD during Stage 2 ticket design via walkthrough).
+   - Social load 7-item anchor set (4 core + 3 extended, weighted). Locked 2026-04-23.
+   - Emotional load 5-item anchor set (4 core + 1 extended, weighted; deliberate deviation from 6-item floor documented in Item 10). Locked 2026-04-23.
    - Behavioral-anchor Y/N fields for cognition/fatigue/pain (supplementing existing axes).
    - Multi-shift trajectory expansion (up to 3 shift timestamps when `up_down` selected).
    - Weather re-fetch at shift timestamps with interpolation fallback (Item 14).
@@ -981,10 +982,11 @@ User requested a critical review of the plan; review surfaced 16 issues across a
 
 **Item 3 — Alexithymia-aware composite: behavioral anchors on EOD (LOCKED, Option C + EOD-only)**
 - Keep `irritabilityLevel` as a felt-sense daily field (user finds it useful for self-awareness) but **demote it in the composite** — it becomes a secondary input, not a primary driver of the social/emotional axes.
-- Add **behavioral-anchor Y/N fields on the EOD form only** (not the episode log). Candidate anchors (final list TBD during Stage 1 ticket design):
-  - "Snapped at someone today"
-  - "Withdrew from planned contact today"
-  - (1–2 more — to be confirmed when drafting the Stage 1 ticket; keep list short)
+- Add **behavioral-anchor Y/N fields on the EOD form only** (not the episode log). **Final list locked 2026-04-23** (4 items):
+  - `socIrritAnchorSnapped` — "Snapped at someone today"
+  - `socIrritAnchorWithdrew` — "Withdrew from planned contact today"
+  - `socIrritAnchorShortenedCancelled` — "Cancelled or shortened a planned interaction today" (complements withdrawal — withdrawal is pre-emptive, this is mid-interaction)
+  - `socIrritAnchorSharper` — "Responded more sharply than the moment warranted today" (subthreshold-snap — edge without a full outburst; distinct severity from #1)
 - **EOD-only rationale:**
   1. Double-counting risk if both episode-log and EOD capture the same behaviors → composite would weight same event twice.
   2. Behavioral questions are end-of-day questions by nature — "did X happen today" can't be answered mid-day.
@@ -1030,13 +1032,27 @@ User requested a critical review of the plan; review surfaced 16 issues across a
 - Validation export: weekly correlation between composite score and `functionalToday` ordinal rank. Persistent divergence flags a spec problem.
 - This eliminates the circularity problem (the overall-interference self-rating was both input AND implicit target).
 
-**Change 2 — Extend behavioral-anchor Y/N fields (Item 3 logic) to more axes on the EOD form:**
-- **Social/irritability** (from Item 3): "snapped at someone," "withdrew from planned contact," +1–2 TBD.
-- **Cognition:** candidates — "lost track mid-sentence Y/N," "had to re-read to understand Y/N," "couldn't find a word Y/N" (final list TBD at Stage 1 ticket design; keep short).
-- **Fatigue:** candidates — "napped today Y/N," "went to bed earlier than planned Y/N."
-- **Pain:** candidates — "avoided a specific movement Y/N," "took unscheduled medication Y/N."
-- All EOD-only (same Item 3 rationale: avoid double-counting, answers require day-complete perspective).
-- Count-based scoring within each axis (e.g., cognition Y/N count → [0,1] normalized).
+**Change 2 — Extend behavioral-anchor Y/N fields (Item 3 logic) to more axes on the EOD form (all final lists locked 2026-04-23):**
+- **Social/irritability** (4 items) — see Item 3 lock above for full list and rationale.
+- **Cognition (paired morning + evening — EXCEPTION to EOD-only rule, 3 items):**
+  - `cogAnchorLostTrack` — "Lost track mid-sentence"
+  - `cogAnchorHadToReread` — "Had to re-read to understand"
+  - `cogAnchorCouldntFindWord` — "Couldn't find a word"
+  - Paired rationale: composite `cognition` axis uses `peakOfPaired` (max of AM/PM counts); morning window requires a morning question, so this set lives on both forms. All other behavioral anchor sets remain EOD-only.
+- **Fatigue (3 items, EOD-only):**
+  - `fatigueAnchorNapped` — "Napped today"
+  - `fatigueAnchorBedEarly` — "Went to bed earlier than planned"
+  - `fatigueAnchorRestedNotNap` — "Rested / lay down during the day (not a nap)" — captures capacity-decline below nap threshold
+- **Pain (3 items, EOD-only):**
+  - `painAnchorAvoidedMovement` — "Avoided a specific movement"
+  - `painAnchorUnscheduledMed` — "Took unscheduled pain medication"
+  - `painAnchorAtRest` — "Pain at rest (not just during movement)" — clinical-marker distinguishing mechanical from inflammatory/central pain patterns
+- Count-based scoring within each axis (equal-weight; cognition Y/N count → [0,1] normalized; same for others).
+- **Cuts from candidate lists (reasoning documented for future reference):**
+  - Cognition: "mixed up words" (collapses with #3 word-finding), "mind went blank" (subset of #1 lost-track), "check calendar repeatedly" (introspective EF/anxiety confound), "took notes for normally-remembered thing" (requires memory comparison).
+  - Fatigue: "skipped planned activity too tired" (overlaps `costActivities`), "woke unrefreshed" (overlaps sleep quality), "pushed through depleted" (introspective).
+  - Pain: "used heat/cold/device" (routine use risk), "modified activity because of pain" (overlaps costActivities and avoidance), "adjusted posture repeatedly" (baseline-behavior, no signal).
+  - Social/irritability: "thinner-skinned than usual" (introspective), "avoided eye contact" (autistic baseline misfire risk), "didn't initiate contact" (vague baseline).
 
 **Change 3 — Axis consolidation (overlap collapse) DEFERRED to post-launch:**
 - Likely co-varying pairs (fatigue↔cognition, social-withdrawal↔irritability) may warrant consolidation after ~3 months of real data.
@@ -1219,15 +1235,84 @@ Covers the evidence-backed domains: effortful cognition, executive function, lea
 - Max core-only day: 3 + 3(masking max) + 3 + 3 = **12**
 - Raw score normalized to [0, 1] by dividing by max-for-logged-mode.
 
-**SOCIAL load — parallel structure TBD**
-- Apply same framework (Framing A, 6–8 items, 4 core, weighted, observable events).
-- Known anchors likely to include: extended difficult interactions, group settings, non-masking social cognition (decoding charged interactions after the fact), advocacy/translation work.
-- Full spec DEFERRED to Stage 1 ticket design with user walkthrough.
+**SOCIAL load — 7 items, 4 core (LOCKED 2026-04-23)**
 
-**EMOTIONAL load — parallel structure TBD**
-- Apply same framework.
-- Known anchors likely to include: conflict events, high-stakes events (medical advocacy, healthcare decisions), grief/loss events, anxiety-driven rumination.
-- Full spec DEFERRED to Stage 1 ticket design with user walkthrough.
+Covers interactional cost that isn't already captured by cognitive-load masking, emotional-regulation composure, or communication-production anchors. Fences off against cognitive as follows: cognitive masking is about concealing self during fitting-in; social is about handling the interaction itself (advocacy, conflict, multi-party tracking, responsive availability).
+
+**CORE (4 items, always answered):**
+
+| # | Item | Weight |
+|---|---|---|
+| 1 | **Medical / bureaucratic self-advocacy interaction** — appointment, pharmacy call, insurance call, specialist triage, where the user had to run the advocacy herself | **3** |
+| 2 | **Difficult interpersonal interaction** — conflict, holding a limit, receiving directed frustration, navigating someone's hard feelings toward her | **3** |
+| 3 | **Group setting with ≥3 people ≥1h** where she tracked multiple conversation threads | **2** |
+| 4 | **Sustained responsive availability** — was "on" for someone else's needs (partner / family / dependent) for a meaningful stretch today | **2** |
+
+**EXTENDED (3 items, skippable on hard symptom days):**
+
+| # | Item | Weight |
+|---|---|---|
+| 5 | **Post-hoc social processing** — spent meaningful time after an interaction decoding it ("what did they mean," "did I handle that right") | **2** |
+| 6 | **New social context** — met a new person, or was in an unfamiliar social setting (novelty cost beyond masking baseline) | **1** |
+| 7 | **Scheduled social obligation kept** — attended a commitment she'd been dreading or low-capacity for | **2** |
+
+**Scoring:**
+- Max full-log day: 3 + 3 + 2 + 2 + 2 + 1 + 2 = **15**
+- Max core-only day: 3 + 3 + 2 + 2 = **10**
+- Raw score normalized to [0, 1] by dividing by max-for-logged-mode.
+
+**Rationale on anchor #1 (medical-advocacy):** user has no coordinating physician and manages multiple specialists independently. This is a recurring, high-cost social anchor that isn't captured by masking (it's translation + advocacy, not fitting-in). Weight 3 reflects the systemic cost of running her own care coordination.
+
+**Explicitly cut from earlier drafts (reasoning documented for future reference):**
+- "Texted/messaged with someone difficult" — too frequent / low-cost; picked up by Interpersonal (#2) or by cognitive-communication (#5 in cognitive set).
+- "Made a phone call" — covered by cognitive EF+logistics and/or medical-advocacy (#1).
+- "Felt lonely today" — introspective; violates Framing A.
+- "Disappointed in someone" — introspective; no observable anchor.
+
+---
+
+**EMOTIONAL load — 5 items, 4 core (LOCKED 2026-04-23)**
+
+Covers affective cost — the content of what was felt, not the interaction or the regulation work. Fences off against cognitive (which has emotional-regulation-composure during an event) and social (which has the interactional cost): emotional fires from the same event alongside those, no max-rule across axes.
+
+Deliberately below the 6-item framework floor — see rationale at end of section.
+
+**CORE (4 items, always answered):**
+
+| # | Item | Weight |
+|---|---|---|
+| 1 | **Conflict or rupture event** — argument, meaningful misunderstanding, difficult conversation with someone that matters | **3** |
+| 2 | **Significant news or awaited outcome** — medical result, test result, financial/legal outcome, or other real-stakes news received today | **3** |
+| 3 | **Dread / anxiety loop ≥1h** — ran worry / catastrophizing / avoidance loops about a specific concrete thing for a meaningful stretch today. Observable via behavior: checking, rehearsing, avoidance | **3** |
+| 4 | **Witnessed distress** — someone she cares about was having a hard time today and she was present to it (vicarious affect load) | **2** |
+
+**EXTENDED (1 item, skippable on hard symptom days):**
+
+| # | Item | Weight |
+|---|---|---|
+| 5 | **Emotional flashback** — a place / smell / song / mention pulled her back into a past difficult experience today | **2** |
+
+**Scoring:**
+- Max full-log day: 3 + 3 + 3 + 2 + 2 = **13**
+- Max core-only day: 3 + 3 + 3 + 2 = **11**
+- Raw score normalized to [0, 1] by dividing by max-for-logged-mode.
+
+**Deviation from framework floor (6-item minimum): deliberate, locked 2026-04-23.**
+- User cut two proposed anchors during walkthrough: grief/loss pulse (observability concerns — the reminder surfaces it, but the underlying felt-state is introspective for an alexithymic presentation; keeping grief as pure Y/N would collapse meaningful/trivial reminders onto the same signal), and high-activation positive event (user did not recognize this as a regular-enough cost in her week to merit a slot).
+- Witnessed Distress promoted from extended to core to preserve the 4-core nested-PROMIS architecture.
+- Emotional-load research genuinely has fewer clean observable anchors than cognitive/social — affect is the axis most contaminated by self-report reliability issues for alexithymic populations. A smaller, higher-signal set is methodologically preferable to padded slots with poor discrimination.
+- Post-launch: if ≥14 paired days of data show emotional-axis signal underperforming cognitive/social for PEM correlation, revisit anchor set. Candidates for future addition documented below.
+
+**Candidates deferred for post-launch reconsideration (not in v1):**
+- Shame / self-criticism episode — introspective; needs behavioral wrapper to qualify.
+- Had to deliver hard news to someone else — niche frequency; single-subject would show if it fires enough.
+- Family/relationship tension actively present today — currently too vague; needs tighter observable anchor.
+- Grief pulse (retry with tighter observability criteria) — e.g., "anniversary of a loss" or "cried or blocked tears today" as behavioral wrapper.
+
+**Explicitly cut from earlier drafts:**
+- "Held back an emotional reaction" — already covered by cognitive-load anchor #4 (emotional regulation composure >30min).
+- "Felt overwhelmed today" — introspective; violates Framing A.
+- "Had to regulate a reaction in public" — subset of cognitive-load emotional regulation.
 
 **PEM correlation engine extension:**
 - Physical exertion (existing) + cognitive load + social load + emotional load — four independent inputs.
@@ -1237,11 +1322,14 @@ Covers the evidence-backed domains: effortful cognition, executive function, lea
 
 **`MEDICAL_PURPOSE.md` must document:**
 - The 8 evidence-backed cognitive-load domains (NASA-TLX + Neuro-QoL + Raymaker + Invisible Family Load Scale + Gross + Sweller taxonomy).
+- The 7-item social-load anchor set with its fence against cognitive-masking (masking = concealing self; social = handling interactions — advocacy, conflict, multi-party tracking, responsive availability). Weight-3 rationale for medical-advocacy anchor tied to user's independent-care-coordination context.
+- The 5-item emotional-load anchor set and the deliberate deviation from the 6-item floor (alexithymia-aware: emotional axis has fewer clean observable anchors than cognitive/social; smaller high-signal set preferable to padded slots with poor discrimination). Candidates deferred for post-launch reconsideration documented.
 - Why behavioral-anchor Y/Ns are used instead of load intensity Likerts (alexithymia-aware consistency with Items 3 + 6; research red flag against intensity self-rating).
-- Weighting rationale per anchor (why emotional regulation is weight 3, not 2).
+- Weighting rationale per anchor (why emotional regulation is weight 3, not 2; why medical-advocacy is weight 3 for this user specifically).
 - Core vs. extended nesting architecture (mirrors PROMIS-29).
 - That anchor weights and thresholds are v1 judgment calls, refinable post-launch if data shows mis-calibration.
-- Cuts rationale (why context switching, learning, and reading are NOT in the final set).
+- Cuts rationale (why context switching, learning, and reading are NOT in the cognitive set; why grief-pulse and high-activation-positive are NOT in the emotional set; why lonely/disappointed/overwhelmed are NOT in social/emotional — introspection violations).
+- Cross-axis firing rule: social and emotional can both fire from the same event (e.g., a conflict event fires Social #2 AND Emotional #1). No max-rule across axes; within-axis overlapping tiered anchors use max (cognitive-masking hybrid is the only current case).
 
 **Cost flagged:** EOD form is becoming ~3–5 minutes with cognitive + social + emotional load anchors + the Item 3/6 behavioral anchors. User confirmed this is acceptable (capacity feedback from Item 8 discussion).
 
@@ -1431,7 +1519,7 @@ All 16 items resolved. The plan's locked decisions are now:
 Decisions above modify Parts B / C / D / E + `MEDICAL_PURPOSE.md` requirements. The walkthrough state preserved here is the source of truth; main-plan-body sections need to be rewritten to reflect:
 - Item 6's `functionalToday` → validation-only restructure (biggest change; touches weights, inputs, validation framing).
 - Item 7's axisConfig declarative structure replaces the hardcoded `commWorse`/`irritWorse` named formulas in plan lines 401–416.
-- Item 10's 8-item cognitive-load anchor set (new EOD fields).
+- Item 10's three anchor sets (cognitive 8-item / social 7-item / emotional 5-item, new EOD fields). Social + emotional locked 2026-04-23.
 - Items 13/16's versioning + stage provenance spec in the export-header section.
 - Item 8's behavioral-anchor retrospective for Summers 2022/23 (replaces the Likert-style retrospective in lines 466–479).
 

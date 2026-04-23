@@ -1,3 +1,4 @@
+
 # Isobar — Trigger-Trap Correction (Plan)
 
 Compiled 2026-04-19, rewritten 2026-04-20 after resolution of all six open questions. Modern migraine-trigger literature finds that most self-reported "triggers" are actually prodromal symptoms of an attack that has already started centrally. This plan specifies the app-design changes needed to avoid encoding that bias into Isobar's data model and future analyses.

@@ -1136,7 +1136,7 @@ function startEpisode() {
     prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
     chestTight: false, cane: false,
     communicationLevel: null, externalObservation: null,
-    exposures: [], notes: '',
+    exposures: [], substance24h: { flag: false, note: '' }, notes: '',
     weather: currentWeather || null, severity: null,
   };
   epStep = 0;
@@ -1245,15 +1245,17 @@ async function renderEpStep() {
     case 4:
       epData._lastArr = 'exposures';
       const exposureOpts = [
-        {value:'weather',label:'Weather / travel'},
         {value:'animal',label:'Animal exposure'},
         {value:'chemical',label:'Chemical / perfume'},
-        {value:'new_env',label:'New environment'},
-        {value:'poor_sleep',label:'Poor sleep'},
-        {value:'stress',label:'High stress'},
-        {value:'exertion',label:'Physical exertion'},
-        {value:'hormonal',label:'Hormonal / cycle'},
         {value:'mold',label:'Mold / musty space'},
+        {value:'directional_cold_airflow',label:'Cold airflow on skin (AC / fan / window)'},
+        {value:'exertion',label:'Physical exertion'},
+        {value:'prolonged_stillness',label:'Prolonged stillness (car / flight / ≥4h)'},
+        {value:'poor_sleep',label:'Poor sleep'},
+        {value:'sleep_disruption',label:'Sleep disruption / overnight shift'},
+        {value:'stress_acute',label:'Acute stress event'},
+        {value:'stress_chronic',label:'Elevated baseline stress'},
+        {value:'hormonal',label:'Hormonal / cycle'},
       ];
       const epRefMs = (() => {
         const t = epData.prodromeTime || epData.firstJerkTime;
@@ -1267,9 +1269,18 @@ async function renderEpStep() {
       const mealCaption = fastedMeal
         ? `since ${mealSizeLabels[fastedMeal.mealSize] || 'meal'} at ${new Date(fastedMeal.timestamp).toLocaleString([], { weekday:'short', hour:'numeric', minute:'2-digit' })}`
         : 'no meal logged before this episode';
+      const sub24h = epData.substance24h || { flag: false, note: '' };
       html = `
         <div class="section">
           <div class="choices">${choices(exposureOpts, epData.exposures, null, true)}</div>
+          <p style="font-size:11px;color:var(--dim);margin:6px 0 0">Acute stress = a specific event; Elevated = ongoing state over days</p>
+        </div>
+        <div class="section">
+          <span class="label">Substance in last 24h</span>
+          <div style="margin-top:6px">
+            <button class="choice${sub24h.flag ? ' selected' : ''}" onclick="epData.substance24h.flag=!epData.substance24h.flag;renderEpStep()">Yes</button>
+          </div>
+          ${sub24h.flag ? `<input type="text" placeholder="What / when (optional)" value="${sub24h.note||''}" oninput="epData.substance24h.note=this.value" style="width:100%;margin-top:8px">` : ''}
         </div>
         <div class="section">
           <span class="label">Hours fasted at episode onset</span>
@@ -1666,6 +1677,15 @@ async function renderLog() {
         const label = idx >= 0 ? spec.labels[idx] : v;
         return [`<span class="entry-chip" style="color:${color}">${label}</span>`];
       }) : []),
+      ...(isEod ? (() => {
+        const actColors = { none:'var(--mid)', light:'var(--good)', moderate:'var(--accent)', strenuous:'var(--warn)' };
+        const trajLabels = { better:'got better', same:'same', worse:'got worse', up_down:'up & down' };
+        const out = [];
+        if (e.activityLevel) out.push(`<span class="entry-chip" style="color:${actColors[e.activityLevel]||'var(--mid)'}">activity: ${e.activityLevel.replace(/_/g,' ')}</span>`);
+        if (e.dayTrajectory) out.push(`<span class="entry-chip">${trajLabels[e.dayTrajectory]||e.dayTrajectory}</span>`);
+        if (e.functionalToday) out.push(`<span class="entry-chip" style="color:${functionalColors[e.functionalToday]||'var(--mid)'}">${functionalLabels[e.functionalToday]||e.functionalToday}</span>`);
+        return out;
+      })() : []),
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -1696,7 +1716,7 @@ async function renderLog() {
         ${sevLabel && !isEod ? `<span style="font-size:12px;color:${sevColor};font-weight:600">${sevLabel}</span>` : ''}
       </div>
       <div class="entry-chips">${chips}</div>
-      ${e.notes ? `<div class="entry-notes">${e.notes}</div>` : ''}
+      ${(() => { const n = isEod ? e.eveningNotes : e.notes; return n ? `<div class="entry-notes">${n}</div>` : ''; })()}
     </div>`;
   }))).join('');
 }
@@ -1741,14 +1761,15 @@ async function updateStats() {
 async function exportReport() {
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
-  const cis = entries.filter(e => e.type === 'checkin' || e.type === 'evening_checkin');
+  const cis = entries.filter(e => e.type === 'checkin');
+  const eods = entries.filter(e => e.type === 'evening_checkin');
 
   const expCount = {};
   eps.forEach(e => (e.exposures||e.triggers||[]).forEach(t => { expCount[t] = (expCount[t]||0)+1; }));
   const topExposures = Object.entries(expCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   let r = `SYMPTOM TRACKING REPORT\nGenerated: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
-  r += `SUMMARY\nEpisodes: ${eps.length}  |  Check-ins: ${cis.length}  |  Days tracked: ${new Set(entries.map(e=>e.timestamp.slice(0,10))).size}\n`;
+  r += `SUMMARY\nEpisodes: ${eps.length}  |  Morning check-ins: ${cis.length}  |  Evening check-ins: ${eods.length}  |  Days tracked: ${new Set(entries.map(e=>e.timestamp.slice(0,10))).size}\n`;
   if (entries.length) r += `Date range: ${new Date(entries[entries.length-1].timestamp).toLocaleDateString()} – ${new Date(entries[0].timestamp).toLocaleDateString()}\n`;
   r += '\n';
 
@@ -1776,7 +1797,12 @@ async function exportReport() {
     if (e.weather?.tempMaxDrop5h != null) r += `  Max 5h temp drop: ${e.weather.tempMaxDrop5h}°F · Max 5h temp rise: ${e.weather.tempMaxRise5h}°F\n`;
     if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F (6hr trend: ${(e.weather.tempTrend>0?'+':'')}${e.weather.tempTrend}°F)\n`;
     const exposures = e.exposures || e.triggers || [];
-    if (exposures.length) r += `  Exposures: ${exposures.join(', ')}\n`;
+    if (exposures.length) r += `  Exposures: ${exposures.map(v=>v.replace(/_/g,' ')).join(', ')}\n`;
+    if (e.substance24h?.flag) {
+      r += `  Substance in last 24h: yes`;
+      if (e.substance24h.note) r += ` (${e.substance24h.note})`;
+      r += '\n';
+    }
     // Compute fasted-hours live from meal history; fall back to legacy snapshot fields for pre-derived-model entries
     const liveMeal = await findMealForEpisode(e.timestamp);
     const liveFasted = await fastedHoursFor(e.timestamp);
@@ -1820,21 +1846,6 @@ async function exportReport() {
       r += `  Irritability: ${irritExportLabels[e.irritabilityLevel]||e.irritabilityLevel}\n`;
     }
     if (e.morningIrritabilityExternalObservation) r += `  Observed as snapping/on edge: ${e.morningIrritabilityExternalObservation}\n`;
-    // Evening snapshot (Stage 2 — TICK-019). Dedicated EVENING CHECK-INS section comes in TICK-022.
-    if (e.eveningCommunicationLevel) r += `  Evening communication: ${commLabels[e.eveningCommunicationLevel]||e.eveningCommunicationLevel}\n`;
-    if (e.eveningIrritabilityLevel) r += `  Evening irritability: ${irritExportLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
-    if (e.eveningExternalObservation) r += `  Observed as snapping/on edge (evening): ${e.eveningExternalObservation}\n`;
-    // Evening cost block (Stage 2 — TICK-020). Dedicated EVENING CHECK-INS section comes in TICK-022.
-    const costLabels = {
-      costActivities:     { all:'all', most:'most', some:'some', almost_none:'almost none' },
-      costConnection:     { easy:'easy', muted:'muted', withdrew:'withdrew', couldnt:"couldn't" },
-      costFun:            { had_energy:'had energy', a_little:'a little', none:'none', avoided:'avoided' },
-      costSleepReadiness: { tired_good:'tired-good', wiped:'wiped', wired:'wired', overwhelmed:'overwhelmed' },
-    };
-    if (e.costActivities)     r += `  Activities cost: ${costLabels.costActivities[e.costActivities]||e.costActivities}\n`;
-    if (e.costConnection)     r += `  Connection cost: ${costLabels.costConnection[e.costConnection]||e.costConnection}\n`;
-    if (e.costFun)            r += `  Fun cost: ${costLabels.costFun[e.costFun]||e.costFun}\n`;
-    if (e.costSleepReadiness) r += `  Sleep readiness: ${costLabels.costSleepReadiness[e.costSleepReadiness]||e.costSleepReadiness}\n`;
     // Body
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
     // Alcohol
@@ -1865,6 +1876,43 @@ async function exportReport() {
     // Notes
     if (e.notes) r += `  Notes: ${e.notes}\n`;
   });
+
+  if (eods.length) {
+    const eodIrritLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
+    const costLabels = {
+      costActivities:     { all:'all', most:'most', some:'some', almost_none:'almost none' },
+      costConnection:     { easy:'easy', muted:'muted', withdrew:'withdrew', couldnt:"couldn't" },
+      costFun:            { had_energy:'had energy', a_little:'a little', none:'none', avoided:'avoided' },
+      costSleepReadiness: { tired_good:'tired-good', wiped:'wiped', wired:'wired', overwhelmed:'overwhelmed' },
+    };
+    const trajMap = { better:'got better', same:'about the same', worse:'got worse', up_down:'up and down' };
+    r += `\nEVENING CHECK-INS\n${'─'.repeat(30)}\n`;
+    eods.forEach(e => {
+      const d = new Date(e.timestamp);
+      r += `\n${d.toLocaleDateString()}\n`;
+      if (e.eveningCommunicationLevel) r += `  Communication: ${commLabels[e.eveningCommunicationLevel]||e.eveningCommunicationLevel}\n`;
+      if (e.eveningIrritabilityLevel) r += `  Fuse / sensory: ${eodIrritLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
+      if (e.eveningExternalObservation) r += `  Observed as snapping/off: ${e.eveningExternalObservation}\n`;
+      if (e.costActivities)     r += `  Activities cost: ${costLabels.costActivities[e.costActivities]||e.costActivities}\n`;
+      if (e.costConnection)     r += `  Connection cost: ${costLabels.costConnection[e.costConnection]||e.costConnection}\n`;
+      if (e.costFun)            r += `  Fun cost: ${costLabels.costFun[e.costFun]||e.costFun}\n`;
+      if (e.costSleepReadiness) r += `  Sleep readiness: ${costLabels.costSleepReadiness[e.costSleepReadiness]||e.costSleepReadiness}\n`;
+      if (e.activityLevel) {
+        let aLine = `  Activity: ${e.activityLevel.replace(/_/g,' ')}`;
+        if (e.activityType?.length) aLine += ` (${e.activityType.join(', ')})`;
+        if (e.activityWhen?.length) aLine += ` · ${e.activityWhen.join('/')}`;
+        if (e.activityMinutes) aLine += ` · ${e.activityMinutes} min`;
+        r += aLine + '\n';
+      }
+      if (e.dayTrajectory) {
+        let tLine = `  Day trajectory: ${trajMap[e.dayTrajectory]||e.dayTrajectory}`;
+        if (e.trajectoryShiftTime) tLine += ` (shift around ${e.trajectoryShiftTime})`;
+        r += tLine + '\n';
+      }
+      if (e.functionalToday) r += `  Today overall: ${functionalLabels[e.functionalToday]||e.functionalToday}\n`;
+      if (e.eveningNotes?.trim()) r += `  Notes: ${e.eveningNotes.trim()}\n`;
+    });
+  }
 
   const blob = new Blob([r], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -2001,6 +2049,14 @@ function startEvening() {
     costConnection: null,
     costFun: null,
     costSleepReadiness: null,
+    activityLevel: null,
+    activityType: [],
+    activityWhen: [],
+    activityMinutes: null,
+    dayTrajectory: null,
+    trajectoryShiftTime: null,
+    functionalToday: null,
+    eveningNotes: '',
   };
   switchView('evening');
   renderEvening();
@@ -2061,6 +2117,81 @@ function renderEvening() {
           </div>
         </div>`;
       }).join('')}
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Physical activity today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[['none','None / mostly resting'],['light','Light — short walks'],['moderate','Moderate — sustained'],['strenuous','Strenuous — pushed harder']].map(([v,l]) => {
+          const actColors = ['var(--mid)','var(--good)','var(--accent)','var(--warn)'];
+          const actIdx = ['none','light','moderate','strenuous'].indexOf(v);
+          const sel = eodData.activityLevel === v;
+          return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${actColors[actIdx]} 12%, transparent);color:${actColors[actIdx]};border-color:${actColors[actIdx]};font-weight:600`:''}"
+            onclick="eodData.activityLevel='${v}';renderEvening()">${l}</button>`;
+        }).join('')}
+      </div>
+      ${eodData.activityLevel && eodData.activityLevel !== 'none' ? `
+      <div style="margin-top:10px">
+        <span class="label" style="font-size:13px;color:var(--dim)">Type (optional)</span>
+        <div class="choices" style="margin-top:4px">
+          ${['walk','bike','workout','yoga','housework','other'].map(v => {
+            const sel = (eodData.activityType||[]).includes(v);
+            return `<button class="choice ${sel?'selected':''}" onclick="(function(){const a=eodData.activityType;const i=a.indexOf('${v}');if(i>-1)a.splice(i,1);else a.push('${v}');renderEvening()})()">${v}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <span class="label" style="font-size:13px;color:var(--dim)">When (optional)</span>
+        <div class="choices" style="margin-top:4px">
+          ${['morning','midday','afternoon','evening'].map(v => {
+            const sel = (eodData.activityWhen||[]).includes(v);
+            return `<button class="choice ${sel?'selected':''}" onclick="(function(){const a=eodData.activityWhen;const i=a.indexOf('${v}');if(i>-1)a.splice(i,1);else a.push('${v}');renderEvening()})()">${v}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <span class="label" style="font-size:13px;color:var(--dim)">Minutes (optional)</span>
+        <input type="number" min="1" placeholder="—" value="${eodData.activityMinutes||''}" oninput="eodData.activityMinutes=this.value?Number(this.value):null" style="width:80px">
+      </div>` : ''}
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">How did the day go overall?</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[['better','Got better'],['same','About the same'],['worse','Got worse'],['up_down','Up and down']].map(([v,l]) => {
+          const trajColors = ['var(--good)','var(--mid)','var(--danger)','var(--accent)'];
+          const trajIdx = ['better','same','worse','up_down'].indexOf(v);
+          const sel = eodData.dayTrajectory === v;
+          return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${trajColors[trajIdx]} 12%, transparent);color:${trajColors[trajIdx]};border-color:${trajColors[trajIdx]};font-weight:600`:''}"
+            onclick="eodData.dayTrajectory='${v}';${(v==='same'||v==='up_down')?'eodData.trajectoryShiftTime=null;':''}renderEvening()">${l}</button>`;
+        }).join('')}
+      </div>
+      ${(eodData.dayTrajectory === 'better' || eodData.dayTrajectory === 'worse') ? `
+      <div style="margin-top:8px">
+        <span class="label" style="font-size:13px;color:var(--dim)">Shift happened around</span>
+        <div class="choices" style="margin-top:4px">
+          ${['midday','afternoon','evening'].map(v => {
+            const sel = eodData.trajectoryShiftTime === v;
+            return `<button class="choice ${sel?'selected':''}" onclick="eodData.trajectoryShiftTime='${v}';renderEvening()">${v}</button>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+      ${eodData.dayTrajectory === 'up_down' ? `<p class="setting-sub" style="margin-top:6px">Multi-shift logging arrives in a later update</p>` : ''}
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">How was today overall?</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[['good','Good day'],['ok','OK day'],['scaled_back','Scaled back'],['bad','Bad day']].map(([v,l]) => {
+          const ftColors = ['var(--good)','var(--accent)','var(--warn)','var(--danger)'];
+          const ftIdx = ['good','ok','scaled_back','bad'].indexOf(v);
+          const sel = eodData.functionalToday === v;
+          return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${ftColors[ftIdx]} 12%, transparent);color:${ftColors[ftIdx]};border-color:${ftColors[ftIdx]};font-weight:600`:''}"
+            onclick="eodData.functionalToday='${v}';renderEvening()">${l}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Anything to note…</span>
+      <textarea rows="4" style="width:100%;margin-top:6px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:14px;resize:vertical"
+        oninput="eodData.eveningNotes=this.value" placeholder="Optional">${eodData.eveningNotes||''}</textarea>
     </div>`;
   document.getElementById('eod-actions').innerHTML =
     '<button class="btn" onclick="saveEod()">Save</button>';
