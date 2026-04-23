@@ -41,6 +41,18 @@ TEST-NNN-kebab-slug.md    # test checklist
 
 Every discrete unit of work that changes `index.html` gets a ticket. Research, data analysis, and clinical findings stay in `docs/findings/` without a ticket number.
 
+### Findings docs — types and optional tracker
+
+A findings doc in `docs/findings/` is one of three things:
+
+1. **Research / data analysis** — correlational work, METAR + symptom studies, exposure analyses. Informs future design.
+2. **Observed-defect postmortem** — names an orphan key, dead write, contract violation, or shipped UX defect.
+3. **Process postmortem** — discusses a workflow/process gap.
+
+For observed-defect findings, note the tracking ticket(s) at the top of the doc (optional YAML `tracked-in` frontmatter, or a *Tracked in:* line in prose). This is a convenience, not a gate — the point is that a reader picking up the doc later can navigate to the fix without grepping. Leaving it blank when the fix hasn't been scoped yet is fine; record it when you know.
+
+Origin: the TICKET-3 findings report on 2026-04-15 named `meal:last_drink` as an orphan and the bug still shipped. The postmortem (`FINDINGS_2026-04-22_meal_state_coherence.md`) initially proposed a findings-to-ticket *gate* as a structural remedy; critique concluded that was a band-aid over attention rather than a structural repair, so the convention is lightweight rather than enforced.
+
 **Ticket sizing — all four must hold:**
 - ≤ 1 focused day of work
 - ≤ 200 LOC changed (soft cap; cross with intent, not by accident)
@@ -132,6 +144,7 @@ Before tagging a ticket `agent-ok`, walk this checklist. The `/autopilot` advers
 
 - For every `index.html:<N>` citation in Agent Context: run `grep -n` for the symbol you claim to be touching and confirm the cited line is inside the right scope (e.g. check-in render path vs. episode render path — the exact trap ISO-47 hit at `:1624`).
 - For every AC that describes DOM placement: name one sibling + one relative position (`"directly after <div class='comm-options'> and before <section id='externalObservation'>"`), not a region like `"below the communication options."`
+- If the ticket introduces a new `DB.set('literal', ...)` key, confirm the reader lands in the same ticket — the `ARCHITECTURE.md` §4 grep check catches the miss. Origin: `meal:last_drink` shipped as an orphan write.
 
 ## Checking off acceptance criteria
 

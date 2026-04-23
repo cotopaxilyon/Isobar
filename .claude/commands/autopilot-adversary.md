@@ -46,6 +46,14 @@ A structured objection list. Markdown, not prose. Each objection cites a specifi
 - **Stop when you loop.** Two passes maximum. If you can't find a third grounded objection on pass two, stop. Adversarial loops that don't converge are noise.
 - **Do not propose fixes.** Your job is finding holes, not patching them.
 
+## Mechanical check to run before manual reasoning
+
+One deterministic gate. Any failure is an automatic `escalate`-severity objection the executor must address before writing code.
+
+- **New storage key has a reader landing in the same ticket.** If the ticket introduces a new `DB.set('literal', ...)` call in `index.html`, the reader (`DB.get` / `DB.keys(prefix)` / `DB.remove`) must land in the same ticket. Run the `ARCHITECTURE.md` §4 orphan-write check on the proposed diff; any `orphan:` line is an automatic escalate. Origin: `meal:last_drink` shipped as an orphan write whose absence of a reader was invisible at every review layer.
+
+(Earlier drafts of this harness layered additional auto-escalates on top of this — a data-shape-contract-filled check, a derived-fields-ledger check, a findings-tracker check. The meal state-coherence postmortem's critical revision concluded those were doing work the architectural *derive-live* preference already does for free, so they were retired. The orphan-write check is the only one the evidence supports as an automatic gate.)
+
 ## What "good" looks like
 
 - 1–4 grounded objections.

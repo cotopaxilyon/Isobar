@@ -148,6 +148,20 @@ Every PLAN must, at the top, cite the principles it **honors** and the ones it *
 
 ---
 
+## Data-shape invariants
+
+Two items from the meal state-coherence postmortem (`docs/findings/FINDINGS_2026-04-22_meal_state_coherence.md`). Scoped narrowly on purpose — the postmortem's first draft proposed a five-mechanic suite of data-shape gates; critique of that suite concluded most of the machinery was doing work the *derive-live* preference (`ARCHITECTURE.md` "Preference: derive live, don't cache") does for free. What remains is the write/read check (mechanical, cheap) and the absence-of-side-effect AC question (the sharpest standalone insight from the incident).
+
+### 28. Will this plan introduce a new storage key with no reader yet on `main`?
+**Flag if:** the plan writes to a new `DB.set('literal', ...)` key whose read site doesn't land in the same ticket. Either the reader lands in this ticket, or the write does not land yet. A persisted record with no consumer is a lie.
+**See:** `docs/ARCHITECTURE.md` §4 (storage keys have named readers — mechanical grep). Origin: `meal:last_drink` shipped as an orphan write on 2026-04-15 and stayed invisible to every downstream surface until the 2026-04-22 audit caught it.
+
+### 29. Does this plan include an AC describing the *absence* of a side-effect?
+**Flag if:** the plan has an AC phrased as "X does not reset Y," "Z is not triggered," "logging W does not update V" without a paired AC for the *visibility / read-side* behavior. If a new storage key is introduced to satisfy the absence (writing to a separate key to avoid resetting the main one), the paired AC must cover what surface the new key shows up on. Narrow absence-of-side-effect ACs without paired visibility ACs are a rejection signal.
+**See:** Origin: the TICKET-3 AC *"drink does not reset the fasting clock"* was satisfied by writing to `meal:last_drink`; nobody asked "who reads that key?" because the AC didn't require it. This is the single sharpest insight from the meal postmortem — the AC's shape determined what the review looked at, and the review stopped at what the AC required.
+
+---
+
 ## How to use
 
 - **Before sending a PLAN to implementation:** walk this checklist against the plan doc. Flag each trip. Resolve or document an exception before tickets get created.

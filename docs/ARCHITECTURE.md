@@ -140,66 +140,89 @@ change lands.
 
 ---
 
-## 3. Security floor in Claude Code config
+## 4. Every storage key has a named reader
 
-**Rule.** `.claude/settings.json` contains a load-bearing `permissions.deny`
-list and a set of PreToolUse / PostToolUse hooks that enforce the
-injection-guardrails plan. Do not remove entries, relax matchers, or disable
-hooks without writing a new plan.
+**Rule.** Every literal storage key written with `DB.set('literal', ...)`
+in `index.html` must appear in at least one `DB.get('literal')`,
+`DB.keys('literal-or-prefix')`, or `DB.remove('literal')` elsewhere in
+the file. A write site with no reader is a **dead write** — either
+wire a reader or remove the write.
 
-**Why.** `/autopilot` ships code to `main`; `/qa-check` writes Linear
-comments and pushes commits. Both ingest attacker-controllable text from
-Linear tickets. Without the capability floor plus hook enforcement, a
-hostile comment body could steer the model into fetching arbitrary URLs,
-writing attacker code into `index.html`, or reading SSH / AWS credentials.
-The model itself is not a security boundary; the hooks are. Full threat
-model and wave-by-wave rationale in
-[`docs/plans/PLAN_injection_guardrails.md`](plans/PLAN_injection_guardrails.md).
-
-The four load-bearing components:
-
-- **Deny floor** — destructive bash (`rm -rf`, `git push --force`,
-  `git reset --hard`), credential paths (`.ssh`, `.aws`, Keychains),
-  and auth escapes are denied before any hook runs.
-- **Outbound network allowlists** — `WebFetch` and
-  `mcp__playwright__browser_navigate` go through per-URL allowlists in
-  `scripts/hooks/preToolUse-webfetch-allowlist.sh` and
-  `…browser-navigate.sh`. Adding a new domain is an explicit script edit,
-  not a permission prompt.
-- **Linear output templating** — `mcp__linear__save_comment` and
-  `save_issue` bodies go through `scripts/hooks/preToolUse-linear-output.sh`
-  which enforces an opener allowlist and a restricted ASCII char class.
-  Mode-gated to `/autopilot` and `/qa-check`.
-- **Per-mode tool manifests** — `.claude/mode-manifests/` contains the
-  per-mode tool allowlist, write-path allowlist, and comment-opener
-  allowlist for each slash command. The manifests are the source of truth;
-  the hooks are the enforcement.
+**Why.** The `meal:last_drink` key was introduced on 2026-04-15 to
+satisfy an AC phrased as the *absence* of a side-effect (drinks don't
+reset the fasting clock). It was written, a success toast was shown,
+and no read site was ever wired. The key was invisible to every
+downstream surface — home card, episode snapshots, fasting calculations,
+export. Full postmortem:
+[`docs/findings/FINDINGS_2026-04-22_meal_state_coherence.md`](findings/FINDINGS_2026-04-22_meal_state_coherence.md).
 
 **Verification.**
 
 ```sh
-grep -q '"Bash(rm -rf\*)"' .claude/settings.json \
-  && grep -q '"Bash(git push --force\*)"' .claude/settings.json \
-  && grep -q '"Read(//Users/.*/\.ssh/\*\*)"' .claude/settings.json \
-  && grep -q '"Read(//Users/.*/\.aws/\*\*)"' .claude/settings.json \
-  && test -x scripts/hooks/preToolUse-mode-manifest.sh \
-  && test -x scripts/hooks/preToolUse-write-path.sh \
-  && test -x scripts/hooks/preToolUse-diff-scanner.sh \
-  && test -x scripts/hooks/preToolUse-browser-navigate.sh \
-  && test -x scripts/hooks/preToolUse-webfetch-allowlist.sh \
-  && test -x scripts/hooks/preToolUse-linear-output.sh \
-  && test -x scripts/hooks/postToolUse-scope-advisory.sh \
-  && test -x scripts/hooks/postToolUse-trust-label.sh \
-  && echo ok
+# For each literal key written with DB.set('...'), confirm either an exact
+# reader (DB.get/remove on the same literal) or a prefix-scan reader
+# (DB.keys('P') where the key starts with P). Prints `orphan: <key>` for
+# any write with no matching reader.
+grep -nE "DB\.set\(['\`][a-zA-Z_][a-zA-Z0-9_:.-]*['\`]" index.html \
+  | while IFS=: read -r line_no rest; do
+      key=$(echo "$rest" | grep -oE "DB\.set\(['\`][^'\`]+['\`]" \
+             | head -1 \
+             | sed -E "s/DB\.set\(['\`]([^'\`]+)['\`]/\1/")
+      [ -z "$key" ] && continue
+      grep -qE "DB\.(get|remove)\(['\`]${key}['\`]" index.html && continue
+      found=0
+      while IFS= read -r p; do
+        case "$key" in "$p"*) found=1; break ;; esac
+      done < <(grep -oE "DB\.keys\(['\`][^'\`]+['\`]" index.html \
+                 | sed -E "s/DB\.keys\(['\`]([^'\`]+)['\`]/\1/" \
+                 | sort -u)
+      [ "$found" -eq 1 ] && continue
+      echo "orphan: $key (line $line_no)"
+    done | sort -u
 ```
 
-Should print `ok`. Any missing deny entry or missing/non-executable hook
-script means the security floor has drifted and must be restored before
-`/autopilot` or `/qa-check` is invoked.
+Any `orphan:` line is a failure — either wire a reader in the same
+ticket or remove the write. Against the current `main` this returns
+`meal:last_drink` as the only orphan, which is Bug 2.
 
-**Exceptions.** None. A new threat model or ticket-specific carve-out
-requires updating `PLAN_injection_guardrails.md` before the settings
-change lands.
+Template-keyed writes (e.g. ``DB.set(`meal:entry:${ts}`, ...)``) are
+not matched by this grep because of the `${...}` interpolation, so
+this check focuses on literal keys only. Template families are
+audited by eye when introduced — confirm a `DB.keys('prefix:')`
+reader exists for the prefix.
+
+**Exceptions.** None. If a reader is genuinely landing in a follow-up
+ticket, wire a stub reader now (even one that just reads-and-discards
+in a debug log) so the key isn't orphaned on `main`.
+
+---
+
+## Preference: derive live, don't cache
+
+Not an invariant — no single mechanical check — but the architectural
+lesson from the meal state-coherence postmortem.
+
+When two shapes of the same data coexist — a history family (e.g.
+`meal:entry:*`) and a cached "most recent" / "current" / summary cell
+(e.g. `meal:last`) — the history is the source of truth and the cache
+will eventually drift from it. If the derivation is cheap (scan-plus-
+reduce over an already-indexed prefix), prefer **drop-and-derive**:
+delete the cache, read from the history every time. The absence of a
+cache makes stale-cache bugs impossible by construction.
+
+Add a snapshot cell only when drop-and-derive has a concrete cost the
+app actually pays — not a hypothetical one. If a snapshot is justified,
+state the derivation rule (`snapshot == reduce(history)`) as a comment
+at the write site.
+
+**Why.** Bug 1 in `docs/findings/FINDINGS_2026-04-22_meal_state_coherence.md`
+was a cache (`meal:last`) that drifted from its history (`meal:entry:*`)
+under an out-of-order affordance (datetime picker) added after the
+cache existed. The fix was to delete the cache and derive live. Doing
+that made a whole tier of proposed process machinery — invariant
+ledgers, data-shape contract fields, plan-review enumeration
+questions — no longer worth the maintenance cost. The architecture
+does the work.
 
 ---
 

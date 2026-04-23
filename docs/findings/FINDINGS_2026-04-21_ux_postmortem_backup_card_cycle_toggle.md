@@ -1,3 +1,8 @@
+---
+finding-type: observed-defect
+tracked-in: [ISO-65, ISO-66]
+---
+
 # UX Postmortem: Two Design Failures, and the Standards That Would Have Caught Them
 
 A writeup for an agent with no context on the project. The goal is not to report what broke — it's to show which established UX/accessibility standards would have caught each failure in review, and what process gap let them through.
