@@ -1648,9 +1648,24 @@ async function renderLog() {
         mealChip = `<span class="entry-chip" style="color:var(--dim)">no meal logged</span>`;
       }
     }
+    const costRamp = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
+    const costFieldSpec = [
+      { field: 'costActivities',     values: ['all','most','some','almost_none'],         labels: ['all','most','some','almost none'] },
+      { field: 'costConnection',     values: ['easy','muted','withdrew','couldnt'],       labels: ['easy','muted','withdrew',"couldn't"] },
+      { field: 'costFun',            values: ['had_energy','a_little','none','avoided'],  labels: ['had energy','a little','none','avoided'] },
+      { field: 'costSleepReadiness', values: ['tired_good','wiped','wired','overwhelmed'],labels: ['tired-good','wiped','wired','overwhelmed'] },
+    ];
     const chips = [
       commVal ? `<span class="entry-chip" style="color:${commColors[commVal]||'var(--mid)'}">${commVal}</span>` : '',
       irritVal ? `<span class="entry-chip" style="color:${irritColors[irritVal]||'var(--mid)'}">${irritLabels[irritVal]||irritVal}</span>` : '',
+      ...(isEod ? costFieldSpec.flatMap(spec => {
+        const v = e[spec.field];
+        if (!v) return [];
+        const idx = spec.values.indexOf(v);
+        const color = idx >= 0 ? costRamp[idx] : 'var(--mid)';
+        const label = idx >= 0 ? spec.labels[idx] : v;
+        return [`<span class="entry-chip" style="color:${color}">${label}</span>`];
+      }) : []),
       ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -1809,6 +1824,17 @@ async function exportReport() {
     if (e.eveningCommunicationLevel) r += `  Evening communication: ${commLabels[e.eveningCommunicationLevel]||e.eveningCommunicationLevel}\n`;
     if (e.eveningIrritabilityLevel) r += `  Evening irritability: ${irritExportLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
     if (e.eveningExternalObservation) r += `  Observed as snapping/on edge (evening): ${e.eveningExternalObservation}\n`;
+    // Evening cost block (Stage 2 — TICK-020). Dedicated EVENING CHECK-INS section comes in TICK-022.
+    const costLabels = {
+      costActivities:     { all:'all', most:'most', some:'some', almost_none:'almost none' },
+      costConnection:     { easy:'easy', muted:'muted', withdrew:'withdrew', couldnt:"couldn't" },
+      costFun:            { had_energy:'had energy', a_little:'a little', none:'none', avoided:'avoided' },
+      costSleepReadiness: { tired_good:'tired-good', wiped:'wiped', wired:'wired', overwhelmed:'overwhelmed' },
+    };
+    if (e.costActivities)     r += `  Activities cost: ${costLabels.costActivities[e.costActivities]||e.costActivities}\n`;
+    if (e.costConnection)     r += `  Connection cost: ${costLabels.costConnection[e.costConnection]||e.costConnection}\n`;
+    if (e.costFun)            r += `  Fun cost: ${costLabels.costFun[e.costFun]||e.costFun}\n`;
+    if (e.costSleepReadiness) r += `  Sleep readiness: ${costLabels.costSleepReadiness[e.costSleepReadiness]||e.costSleepReadiness}\n`;
     // Body
     if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
     // Alcohol
@@ -1971,6 +1997,10 @@ function startEvening() {
     eveningCommunicationLevel: null,
     eveningIrritabilityLevel: null,
     eveningExternalObservation: null,
+    costActivities: null,
+    costConnection: null,
+    costFun: null,
+    costSleepReadiness: null,
   };
   switchView('evening');
   renderEvening();
@@ -2009,6 +2039,28 @@ function renderEvening() {
       <div class="toggle-pair">
         ${['Yes','No','No one around'].map(o=>`<button class="toggle-btn ${eodData.eveningExternalObservation===o?'on':''}" onclick="eodData.eveningExternalObservation='${o}';renderEvening()">${o}</button>`).join('')}
       </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">What did today cost across…</span>
+      ${[
+        { field: 'costActivities',      sub: 'Activities planned',      values: ['all','most','some','almost_none'],       labels: ['all','most','some','almost none'] },
+        { field: 'costConnection',      sub: 'Connection with people',  values: ['easy','muted','withdrew','couldnt'],     labels: ['easy','muted','withdrew',"couldn't"] },
+        { field: 'costFun',             sub: 'Things for fun',          values: ['had_energy','a_little','none','avoided'],labels: ['had energy','a little','none','avoided'] },
+        { field: 'costSleepReadiness',  sub: 'Sleep readiness now',     values: ['tired_good','wiped','wired','overwhelmed'], labels: ['tired-good','wiped','wired','overwhelmed'] },
+      ].map(row => {
+        const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
+        return `
+        <div style="margin-top:12px">
+          <span class="label" style="font-size:13px;color:var(--dim)">${row.sub}</span>
+          <div class="comm-options">
+            ${row.values.map((v,i) => {
+              const sel = eodData[row.field] === v;
+              return `<button class="comm-btn" style="${sel?`background:color-mix(in srgb, ${colors[i]} 12%, transparent);color:${colors[i]};border-color:${colors[i]};font-weight:600`:''}"
+                onclick="eodData.${row.field}='${v}';renderEvening()">${row.labels[i]}</button>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   document.getElementById('eod-actions').innerHTML =
     '<button class="btn" onclick="saveEod()">Save</button>';
