@@ -2193,13 +2193,12 @@ const localDateTimeISO = d => {
 };
 
 const mealSizeOpts = [
-  { value: 'drink', label: 'Coffee / drink only', icon: '☕' },
-  { value: 'snack', label: 'Small snack',         icon: '🥜' },
-  { value: 'light', label: 'Light meal',           icon: '🥗' },
-  { value: 'full',  label: 'Full meal',            icon: '🍽️' },
+  { value: 'snack', label: 'Small snack', icon: '🥜' },
+  { value: 'light', label: 'Light meal',  icon: '🥗' },
+  { value: 'full',  label: 'Full meal',   icon: '🍽️' },
 ];
 
-const mealSizeLabels = { drink: 'drink', snack: 'snack', light: 'light meal', full: 'full meal' };
+const mealSizeLabels = { snack: 'snack', light: 'light meal', full: 'full meal' };
 
 // One-time: seed meal:entry history from existing meal:last on first load after derived-model rollout
 async function migrateMealsToHistory() {
@@ -2273,23 +2272,17 @@ async function saveMeal() {
   if (ts > new Date(now.getTime() + 60000)) { showToast('Time cannot be in the future', 'var(--warn)'); return; }
   if ((now - ts) > 86400000) { showToast('Time cannot be more than 24h ago', 'var(--warn)'); return; }
 
-  if (size === 'drink') {
-    // Drink doesn't reset fasting clock — not added to meal:entry history
-    await DB.set('meal:last_drink', { timestamp: ts.toISOString(), type: 'meal', mealSize: 'drink' });
-    showToast('Drink logged ✓');
-  } else {
-    // Editing an existing meal: remove the prior meal:entry record so derived calcs see only one truth
-    const editingOldTs = picker?.dataset.editingOriginalTs;
-    if (editingOldTs) {
-      const oldMs = new Date(editingOldTs).getTime();
-      if (!isNaN(oldMs)) await DB.remove(`meal:entry:${oldMs}`);
-    }
-    const newTsMs = ts.getTime();
-    await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
-    const existing = (await DB.get('meal:last')) || {};
-    await DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
-    showToast('Meal logged ✓');
+  // Editing an existing meal: remove the prior meal:entry record so derived calcs see only one truth
+  const editingOldTs = picker?.dataset.editingOriginalTs;
+  if (editingOldTs) {
+    const oldMs = new Date(editingOldTs).getTime();
+    if (!isNaN(oldMs)) await DB.remove(`meal:entry:${oldMs}`);
   }
+  const newTsMs = ts.getTime();
+  await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+  const existing = (await DB.get('meal:last')) || {};
+  await DB.set('meal:last', { ...existing, timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+  showToast('Meal logged ✓');
   renderMealCard();
 }
 
