@@ -701,7 +701,8 @@ const DB = (() => {
         const ks = Object.keys(localStorage).filter(k => k.startsWith('entry:'));
         items = ks.map(k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }).filter(Boolean);
       }
-      return items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+      return items.filter(e => e && typeof e.timestamp === 'string' && e.type)
+                  .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     },
     // All-keys delete with a PIN-preserving predicate. Exposed because `idb`
     // is IIFE-private and Dexie short-circuits `where('key').startsWith('')`
@@ -1686,8 +1687,8 @@ async function renderLog() {
         if (e.functionalToday) out.push(`<span class="entry-chip" style="color:${functionalColors[e.functionalToday]||'var(--mid)'}">${functionalLabels[e.functionalToday]||e.functionalToday}</span>`);
         return out;
       })() : []),
-      ...(isEp ? (e.limbsAffected||[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
-      ...(e.bodyPain||[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
+      ...(isEp ? (Array.isArray(e.limbsAffected)?e.limbsAffected:[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
+      ...(Array.isArray(e.bodyPain)?e.bodyPain:[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
         const cp = e.cyclePhaseProxy; if (!cp) return [];
         const out = [];
@@ -1748,7 +1749,7 @@ async function updateStats() {
           <span class="mono" style="font-size:12px;color:var(--dim)">${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
           ${e.communicationLevel ? `<span style="font-size:12px;color:${commColors[e.communicationLevel]||'var(--mid)'}">${e.communicationLevel}</span>` : ''}
         </div>
-        ${e.limbsAffected?.length ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">${e.limbsAffected.join(' → ')}</div>` : ''}
+        ${Array.isArray(e.limbsAffected) && e.limbsAffected.length ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">${e.limbsAffected.join(' → ')}</div>` : ''}
       </div>`;
     }).join('');
   } else {
