@@ -1624,7 +1624,7 @@ async function renderLog() {
   const functionalColors = { good:'var(--good)', ok:'var(--accent)', scaled_back:'var(--warn)', bad:'var(--danger)' };
   const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
   const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
-  el.innerHTML = entries.map(e => {
+  el.innerHTML = (await Promise.all(entries.map(async e => {
     const d = new Date(e.timestamp);
     const isEp = e.type === 'episode';
     const isCi = e.type === 'checkin';
@@ -1637,6 +1637,17 @@ async function renderLog() {
     const irritLabels = { normal:'normal', edgy:'edgy', overload:'overload', snap_line:'snap-line' };
     const commVal = isEod ? e.eveningCommunicationLevel : e.communicationLevel;
     const irritVal = isEod ? e.eveningIrritabilityLevel : e.irritabilityLevel;
+    let mealChip = '';
+    if (isEp) {
+      const meal = await findMealForEpisode(e.timestamp);
+      const hours = await fastedHoursFor(e.timestamp);
+      if (meal && hours !== null) {
+        const size = mealSizeLabels[meal.mealSize] || meal.mealSize;
+        mealChip = `<span class="entry-chip mono">${hours}h fasted (last: ${size})</span>`;
+      } else {
+        mealChip = `<span class="entry-chip" style="color:var(--dim)">no meal logged</span>`;
+      }
+    }
     const chips = [
       commVal ? `<span class="entry-chip" style="color:${commColors[commVal]||'var(--mid)'}">${commVal}</span>` : '',
       irritVal ? `<span class="entry-chip" style="color:${irritColors[irritVal]||'var(--mid)'}">${irritLabels[irritVal]||irritVal}</span>` : '',
@@ -1653,6 +1664,7 @@ async function renderLog() {
       })(),
       e.weather?.pressure ? `<span class="entry-chip mono">${e.weather.pressure}hPa (${e.weather.trend>0?'+':''}${e.weather.trend})</span>` : '',
       isCi && e.sleepHours != null ? `<span class="entry-chip">${e.sleepHours}h sleep</span>` : '',
+      mealChip,
     ].filter(Boolean).join('');
     // Severity display: functionalToday for new check-ins, severity for legacy
     const sevKey = isCi ? (e.functionalToday || e.severity) : e.severity;
@@ -1671,7 +1683,7 @@ async function renderLog() {
       <div class="entry-chips">${chips}</div>
       ${e.notes ? `<div class="entry-notes">${e.notes}</div>` : ''}
     </div>`;
-  }).join('');
+  }))).join('');
 }
 
 // ── STATS ─────────────────────────────────────────────────────
