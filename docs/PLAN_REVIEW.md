@@ -22,6 +22,17 @@ Every PLAN must, at the top, cite the principles it **honors** and the ones it *
 **Flag if:** copy uses jargon, metaphor, or subjective nouns ("mood", "anxiety") where an observable proxy ("snapped at someone", "withdrew from planned contact") would do.
 **See:** Principle 3.
 
+### 3a. Does every new section match the surface's established structural pattern?
+**Flag if:** the new section uses a different markup element for its header than peer sections on the same form; the new section introduces an active-state mechanism (marker element, opacity, glyph) not present on any peer widget; any structural element appears on this surface for the first time without being named and ratified in the plan.  
+**How to apply:** for every structural choice, name one peer section on the same surface that makes the same choice. If you can't name one, ratify or remove.  
+**Why:** ISO-73 shipped an `<h3>`, a detached circle marker, and opacity dimming — none had a peer on the form; all three caught in QA, none in review.
+
+### 3b. Do labels read as recognisable states, not category names requiring interpretation?
+**Flag if:** a label names a category rather than a state the user recognises in herself; a label requires estimating a duration, recalling a threshold, or categorising an experience before answering; two adjacent options have overlapping criteria with no tie-breaker; any label contains an unexplained acronym or clinical term; a mathematical symbol (≥, >, <) appears in a label or prompt.  
+**How to apply:** read each label cold, in order, as an exhausted first-time user. If you need the description to understand what the label is asking, the label has failed. Description can add context; label must land alone.  
+**See:** Principle 2 (works at worst), Principle 3 (concrete anchors).  
+**Why:** ISO-73 shipped 8 labels requiring clinical vocabulary and threshold estimation; none would have passed this check.
+
 ### 4. What does this cost the bad-day path, in seconds?
 **Flag if:** the feature adds to the morning check-in or resting flow without a time estimate, or if the total bad-day check-in path exceeds ~45 seconds. Every field costs ~5s; 10 features = skipped check-in on the days that matter most.
 **See:** Principle 2.

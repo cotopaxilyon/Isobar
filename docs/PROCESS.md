@@ -156,6 +156,32 @@ A checked box on the ticket means **verified**, not **attempted**. Split them by
 
 Rule of thumb: if you can't verify it from the diff alone, don't check it. Shipped tickets should have every box checked; partially-checked boxes at ship time means QA was skipped.
 
+## Pre-QA gate for form UI work
+
+Before moving any ticket that modifies or adds a form section to `Ready for QA`, run this checklist. These checks cannot be made from the diff — they require reading the rendered output.
+
+**Structural audit**  
+For every new element in the section, find the peer element on the same surface and confirm the markup matches: same header element/class as all peer sections; same active-state mechanism as peer selection widgets; no element appearing on this surface for the first time without being named in the plan.
+
+**Fatigued-user read-through**  
+Read every label, description, subheading, and instruction in the new section, in order, as a person who is exhausted and cannot analytically evaluate category names. For each item:
+1. Is there an instruction telling me what to do?
+2. Can I recognise myself in this label without reading the description?
+3. Is any term jargon I might not know?
+4. If there are thresholds or overlapping options, do I know which to pick?
+
+If any answer is no — stop. The copy or structure needs revision before QA.
+
+**Data completeness**  
+For every key the new section writes, grep it against: history card render, export block, stats render. Confirm each key appears in a named consumer or is explicitly documented as not displayed. A key with no named reader is a bug before QA.
+
+**Export consistency**  
+Confirm new export labels match the form's display labels, not internal slugs or key names. Read the export block alongside the form labels — they should tell the same story.
+
+**Origin:** ISO-73 shipped 7+ structural, data, and copy bugs that passed all technical checks. See `docs/findings/FINDING_cogload_ux_audit.md`.
+
+---
+
 ## Linear integration
 
 Every ticket in `docs/tickets/` has a matching issue in the **Isobar** team in Linear. The local `.md` is the source of truth for the spec; Linear is the workflow tracker that reflects where the work stands.
