@@ -343,13 +343,6 @@
   }
   .meal-btn:active { opacity: 0.8; }
 
-  /* LOAD ANCHORS (TICK-030..032) */
-  .load-anchor { display:flex; align-items:flex-start; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; cursor:pointer; min-height:44px; user-select:none; -webkit-user-select:none; }
-  .load-anchor[data-active="true"] { background:color-mix(in srgb, var(--accent) 10%, transparent); border-color:var(--accent); }
-  .load-anchor .anchor-check { width:20px; height:20px; border-radius:4px; border:2px solid var(--border); flex-shrink:0; margin-top:1px; }
-  .load-anchor[data-active="true"] .anchor-check { background:var(--accent); border-color:var(--accent); }
-  .load-anchor strong { display:block; font-size:14px; line-height:1.3; }
-  .load-anchor small { display:block; font-size:12px; color:var(--dim); margin-top:3px; line-height:1.4; }
 </style>
 </head>
 <body>
@@ -1695,7 +1688,7 @@ async function renderLog() {
         if (e.functionalToday) out.push(`<span class="entry-chip" style="color:${functionalColors[e.functionalToday]||'var(--mid)'}">${functionalLabels[e.functionalToday]||e.functionalToday}</span>`);
         return out;
       })() : []),
-      ...(isEod && e.cogLoad && ['thinkingSustained','masking','maskingHeavy','highSensory','emotionalRegulation'].some(k => e.cogLoad[k])
+      ...(isEod && e.cogLoad && ['thinkingSustained','masking','maskingHeavy','highSensory','emotionalRegulation','communicationProduction','efLogistics','anticipatory'].some(k => e.cogLoad[k])
         ? [`<span class="entry-chip" style="color:var(--mid)">cog-load</span>`] : []),
       ...(isEp ? (Array.isArray(e.limbsAffected)?e.limbsAffected:[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(Array.isArray(e.bodyPain)?e.bodyPain:[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
@@ -1922,7 +1915,7 @@ async function exportReport() {
       }
       if (e.functionalToday) r += `  Today overall: ${functionalLabels[e.functionalToday]||e.functionalToday}\n`;
       if (e.cogLoad) {
-        const cogKeyMap = [['thinkingSustained','thinking-sustained'],['masking','masking'],['maskingHeavy','masking-heavy'],['highSensory','high-sensory'],['emotionalRegulation','emotional-regulation'],['communicationProduction','comm-production'],['efLogistics','ef-logistics'],['anticipatory','anticipatory']];
+        const cogKeyMap = [['thinkingSustained','2+ hours hard thinking'],['masking','masking 1–2h'],['maskingHeavy','heavy masking / high-stakes'],['highSensory','4+ hours high-sensory'],['emotionalRegulation','held composure 30+ min'],['communicationProduction','wrote/rehearsed avoided message'],['efLogistics','1+ hour admin/logistics'],['anticipatory','background logistics 3+ threads']];
         const activeCog = cogKeyMap.filter(([k]) => e.cogLoad[k]).map(([,s]) => s);
         if (activeCog.length) r += `  Cognitive load: ${activeCog.join(', ')}\n`;
       }
@@ -2123,7 +2116,7 @@ function renderEvening() {
         const colors = ['var(--good)','var(--accent)','#f97316','var(--danger)'];
         return `
         <div style="margin-top:12px">
-          <span class="label" style="font-size:13px;color:var(--dim)">${row.sub}</span>
+          <span class="label">${row.sub}</span>
           <div class="comm-options">
             ${row.values.map((v,i) => {
               const sel = eodData[row.field] === v;
@@ -2136,31 +2129,19 @@ function renderEvening() {
     </div>
     <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
       <span class="label">Cognitive load today</span>
-      ${[
-        { key:'thinkingSustained', label:'Sustained critical thinking >2h', desc:'Debugging hard bugs, analyzing complex situations, weighing decisions with multiple factors' },
-        { key:'masking', label:'Masking >1h', desc:'Social-cue translation, script-building, concealing self to fit in' },
-        { key:'maskingHeavy', label:'Heavy masking >2h OR high-stakes', desc:'Networking event, conference social, major family gathering' },
-        { key:'highSensory', label:'Extended high-sensory environment >4h', desc:'Conference centers, airports, crowded venues, sustained noise + visual complexity' },
-        { key:'emotionalRegulation', label:'Emotional regulation as cognitive work', desc:'Held composure through >30 min of an upsetting or activating situation (kept reaction internal)' },
-      ].map(item => {
-        const active = !!(eodData.cogLoad && eodData.cogLoad[item.key]);
-        return `<div class="load-anchor" data-active="${active}" onclick="eodData.cogLoad.${item.key}=!eodData.cogLoad.${item.key};renderEvening()" style="margin-top:8px">
-          <div class="anchor-check"></div>
-          <div><strong>${item.label}</strong><small>${item.desc}</small></div>
-        </div>`;
-      }).join('')}
-      <span class="label" style="margin-top:14px">Also, if it happened</span>
-      ${[
-        { key:'communicationProduction', label:'Communication production', desc:"Composed or rehearsed a communication you'd been dreading (hard email, difficult message, phone script)" },
-        { key:'efLogistics', label:'EF + logistics work >1h', desc:'Scheduling, coordinating multiple threads, managing paperwork, healthcare/insurance/bureaucracy' },
-        { key:'anticipatory', label:'Anticipatory / managerial load', desc:'≥3 open threads actively tracked (appointments, bills, follow-ups, coordinating others)' },
-      ].map(item => {
-        const active = !!(eodData.cogLoad && eodData.cogLoad[item.key]);
-        return `<div class="load-anchor" data-active="${active}" onclick="eodData.cogLoad.${item.key}=!eodData.cogLoad.${item.key};renderEvening()" style="margin-top:8px;opacity:0.9">
-          <div class="anchor-check"></div>
-          <div><strong>${item.label}</strong><small>${item.desc}</small></div>
-        </div>`;
-      }).join('')}
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'thinkingSustained', label:'2+ hours of hard thinking' },
+          { key:'masking', label:'1–2 hours of masking' },
+          { key:'maskingHeavy', label:'Heavy masking — 2+ hours or high-stakes' },
+          { key:'highSensory', label:'4+ hours in a high-sensory environment' },
+          { key:'emotionalRegulation', label:'Held it together for 30+ minutes' },
+        ].map(item => {
+          const active = !!(eodData.cogLoad && eodData.cogLoad[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.cogLoad.${item.key}=!eodData.cogLoad.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
     </div>
     <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
       <span class="label">Physical activity today</span>
@@ -2175,7 +2156,7 @@ function renderEvening() {
       </div>
       ${eodData.activityLevel && eodData.activityLevel !== 'none' ? `
       <div style="margin-top:10px">
-        <span class="label" style="font-size:13px;color:var(--dim)">Type (optional)</span>
+        <span class="label">Type (optional)</span>
         <div class="choices" style="margin-top:4px">
           ${['walk','bike','workout','yoga','housework','other'].map(v => {
             const sel = (eodData.activityType||[]).includes(v);
@@ -2184,7 +2165,7 @@ function renderEvening() {
         </div>
       </div>
       <div style="margin-top:8px">
-        <span class="label" style="font-size:13px;color:var(--dim)">When (optional)</span>
+        <span class="label">When (optional)</span>
         <div class="choices" style="margin-top:4px">
           ${['morning','midday','afternoon','evening'].map(v => {
             const sel = (eodData.activityWhen||[]).includes(v);
@@ -2193,7 +2174,7 @@ function renderEvening() {
         </div>
       </div>
       <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-        <span class="label" style="font-size:13px;color:var(--dim)">Minutes (optional)</span>
+        <span class="label">Minutes (optional)</span>
         <input type="number" min="1" placeholder="—" value="${eodData.activityMinutes||''}" oninput="eodData.activityMinutes=this.value?Number(this.value):null" style="width:80px">
       </div>` : ''}
     </div>
@@ -2210,7 +2191,7 @@ function renderEvening() {
       </div>
       ${(eodData.dayTrajectory === 'better' || eodData.dayTrajectory === 'worse') ? `
       <div style="margin-top:8px">
-        <span class="label" style="font-size:13px;color:var(--dim)">Shift happened around</span>
+        <span class="label">Shift happened around</span>
         <div class="choices" style="margin-top:4px">
           ${['midday','afternoon','evening'].map(v => {
             const sel = eodData.trajectoryShiftTime === v;
