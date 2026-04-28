@@ -1505,11 +1505,14 @@ function renderCiStep() {
           </div>
         </div>
         <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-          <span class="label">Cycle phase symptoms today</span>
-          <div class="toggle-pair" style="margin-bottom:10px">
+          <span class="label">How does today feel overall?</span>
+          <div class="toggle-pair" style="margin-top:8px">
             <button class="toggle-btn ${cp.cycleRelatedDay?'on':''}" onclick="ciData.cyclePhaseProxy.cycleRelatedDay=!ciData.cyclePhaseProxy.cycleRelatedDay;renderCiStep()">Today is a cycle day</button>
           </div>
-          <div class="toggle-pair" style="flex-wrap:wrap;gap:8px">
+        </div>
+        <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <span class="label">Cycle phase symptoms today</span>
+          <div class="toggle-pair" style="flex-wrap:wrap;gap:8px;margin-top:8px">
             <button class="toggle-btn ${cp.breastTender?'on':''}" onclick="ciData.cyclePhaseProxy.breastTender=!ciData.cyclePhaseProxy.breastTender;renderCiStep()">Breast tenderness</button>
             <button class="toggle-btn ${cp.bloating?'on':''}" onclick="ciData.cyclePhaseProxy.bloating=!ciData.cyclePhaseProxy.bloating;renderCiStep()">Bloating / fluid retention</button>
           </div>
