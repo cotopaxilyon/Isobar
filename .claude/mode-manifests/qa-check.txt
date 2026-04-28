@@ -14,3 +14,4 @@ mcp__linear__list_comments
 mcp__linear__get_issue
 mcp__linear__save_issue
 mcp__linear__save_comment
+Skill

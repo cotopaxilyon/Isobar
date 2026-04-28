@@ -1,3 +1,4 @@
 /Users/cotopaxilyon/WebstormProjects/Isobar/docs/qa-fail/*.md
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/qa-watcher-seen.json
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/active-mode
+/Users/cotopaxilyon/WebstormProjects/Isobar/index.html
