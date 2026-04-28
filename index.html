@@ -1179,11 +1179,11 @@ async function renderEpStep() {
         </div>
         <div class="section">
           <span class="label">Prodrome started</span>
-          <input type="time" value="${epData.prodromeTime}" oninput="epData.prodromeTime=this.value">
+          ${renderTimePicker24('prodrometime', epData.prodromeTime, "epData.prodromeTime=getTimePickerValue('prodrometime')")}
         </div>
         <div class="section">
           <span class="label">First jerk / kick (time)</span>
-          <input type="time" value="${epData.firstJerkTime}" oninput="epData.firstJerkTime=this.value">
+          ${renderTimePicker24('firstjerktime', epData.firstJerkTime, "epData.firstJerkTime=getTimePickerValue('firstjerktime')")}
         </div>`;
       break;
     case 1:
