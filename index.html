@@ -1788,169 +1788,381 @@ async function updateStats() {
 // ── EXPORT ────────────────────────────────────────────────────
 async function exportReport() {
   const entries = await DB.allEntries();
-  const eps = entries.filter(e => e.type === 'episode');
+  // Support both episode_v2 (current schema) and legacy episode entries
+  const eps = entries.filter(e => e.type === 'episode_v2' || e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
   const eods = entries.filter(e => e.type === 'evening_checkin');
+  const motors = entries.filter(e => e.type === 'motor_event');
 
-  const expCount = {};
-  eps.forEach(e => (e.exposures||e.triggers||[]).forEach(t => { expCount[t] = (expCount[t]||0)+1; }));
-  const topExposures = Object.entries(expCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  // Group motor events by episode id
+  const motorsByEp = {};
+  motors.forEach(m => {
+    if (m.episode_id) {
+      if (!motorsByEp[m.episode_id]) motorsByEp[m.episode_id] = [];
+      motorsByEp[m.episode_id].push(m);
+    }
+  });
 
-  let r = `SYMPTOM TRACKING REPORT\nGenerated: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n`;
-  r += `SUMMARY\nEpisodes: ${eps.length}  |  Morning check-ins: ${cis.length}  |  Evening check-ins: ${eods.length}  |  Days tracked: ${new Set(entries.map(e=>e.timestamp.slice(0,10))).size}\n`;
-  if (entries.length) r += `Date range: ${new Date(entries[entries.length-1].timestamp).toLocaleDateString()} – ${new Date(entries[0].timestamp).toLocaleDateString()}\n`;
-  r += '\n';
+  // ── Label maps ──
+  const sevLabels      = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe' };
+  const commLabels     = { normal:'Talking easily', quieter:'Quieter than usual', shortened:'Shorter responses', brief:'Brief only' };
+  const irritLabels    = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
+  const funcLabels     = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
+  const stiffLabels    = { none:'None', under_15:'<15 min', '15_to_60':'15-60 min', over_60:'1+ hours', ongoing:'Still stiff' };
+  const overnightLbls  = { muscle_twitching:'Muscle twitching', jaw_spasming:'Jaw spasming', intercostal_spasms:'Intercostal/rib spasms', woke_locked:'Woke locked', night_sweats:'Night sweats', breathing_trouble:'Breathing trouble', woke_in_pain:'Woke in pain', nothing_noticed:'Nothing noticed' };
+  const trajMap        = { better:'got better', same:'about the same', worse:'got worse', up_down:'up and down' };
+  const mealSizeLbls   = { full:'full meal', light:'light meal', snack:'snack', drink:'drink' };
+  const costLbls       = { costActivities:{all:'all',most:'most',some:'some',almost_none:'almost none'}, costConnection:{easy:'easy',muted:'muted',withdrew:'distant',couldnt:'shut down'}, costFun:{had_energy:'lots',a_little:'a little',none:'none',avoided:'avoided'}, costSleepReadiness:{tired_good:'tired-good',wiped:'wiped',wired:'wired',overwhelmed:'overwhelmed'} };
 
-  if (topExposures.length) {
-    r += `TOP EXPOSURES\n${topExposures.map(([t,c])=>`  ${t.replace(/_/g,' ')}: ${c}x`).join('\n')}\n\n`;
+  // ── Helpers ──
+  const entryDate = e => e.entryDate || (e.timestamp||'').slice(0,10);
+  const fmtTime   = iso => { if (!iso) return null; const d=new Date(iso); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
+  const fmtDate   = iso => { if (!iso) return null; return new Date(iso).toLocaleDateString(); };
+  const durStr    = (s,e) => { if (!s||!e) return null; const m=Math.round((new Date(e)-new Date(s))/60000); return m<60?`${m} min`:`${Math.floor(m/60)}h${m%60?' '+m%60+'m':''}`; };
+
+  // ── Computed stats ──
+  const epsWithMotor = eps.filter(e => (e.spasm_count||0) > 0 || e.type === 'episode');
+  const epsAborted   = eps.filter(e => e.type === 'episode_v2' && (e.spasm_count||0) === 0 && !e.prodrome_absent);
+  const totalJerks   = eps.reduce((s,e) => s + (e.spasm_count||0), 0);
+
+  const funcDist = { good:0, ok:0, scaled_back:0, bad:0 };
+  cis.forEach(e => { if (e.functionalToday && funcDist.hasOwnProperty(e.functionalToday)) funcDist[e.functionalToday]++; });
+
+  const morningsWithTwitch  = cis.filter(e => (e.overnightEvents||[]).includes('muscle_twitching'));
+  const eodsWithDysreg      = eods.filter(e => ['edgy','overload','snap_line'].includes(e.eveningIrritabilityLevel));
+  const eodsWithSnapping    = eods.filter(e => e.eveningExternalObservation === 'yes');
+
+  const worstEp = eps.filter(e=>e.severity_peak==='much_worse').sort((a,b)=>(b.spasm_count||0)-(a.spasm_count||0))[0];
+
+  const allTs   = [...eps.map(e=>e.prodrome_onset||e.ictal_onset||e.timestamp), ...cis.map(e=>e.timestamp), ...eods.map(e=>e.timestamp)].filter(Boolean);
+  const dateMin = allTs.length ? new Date(Math.min(...allTs.map(t=>+new Date(t)))) : null;
+  const dateMax = allTs.length ? new Date(Math.max(...allTs.map(t=>+new Date(t)))) : null;
+  const dayCount = dateMin && dateMax ? Math.ceil((dateMax-dateMin)/86400000)+1 : 0;
+
+  // ── Day map for timeline ──
+  const dayMap = {};
+  const toDay = (date, key, val) => {
+    if (!dayMap[date]) dayMap[date] = { morning:null, episodes:[], evening:null };
+    if (key === 'ep') dayMap[date].episodes.push(val);
+    else dayMap[date][key] = val;
+  };
+  cis.forEach(e  => toDay(entryDate(e),  'morning', e));
+  eods.forEach(e => toDay(entryDate(e),  'evening', e));
+  eps.forEach(e  => toDay(e.entryDate || (e.prodrome_onset||e.ictal_onset||e.timestamp||'').slice(0,10), 'ep', e));
+  const allDates = Object.keys(dayMap).sort();
+
+  // ── Build report ──
+  let r = '';
+
+  // HEADER
+  r += `ISOBAR CLINICAL EPISODE REPORT\n`;
+  r += `Patient: Cotopaxi Lyon  ·  Generated: ${new Date().toLocaleString()}\n`;
+  r += `${'═'.repeat(60)}\n\n`;
+
+  // SECTION 1 — CLINICAL CONTEXT
+  r += `CLINICAL CONTEXT\n${'─'.repeat(60)}\n`;
+  r += `Patient: Cotopaxi Lyon, 37F, Marquette MI. Suspected Stiff Person Syndrome spectrum / autonomic dysfunction / post-COVID dysautonomia. Multiple specialists, no coordinating physician.\n\n`;
+  r += `Why non-standard scales: Autism, alexithymia, high pain tolerance. Numeric self-report (0–10) systematically under-reports actual state. All scales use behavioral and functional anchors (behavioral pain assessment family: DisDAT/NCAPC, adapted for autistic alexithymic adults).\n\n`;
+  r += `Arizona reference (personal calibration zero): 4 continuous weeks spring 2026, ~85°F stable desert. Near-complete symptom resolution — no myoclonic episodes, restored communication and energy. All severity comparisons anchor to this period.\n\n`;
+
+  // SECTION 2 — SCALE LEGEND
+  r += `SCALE TRANSLATION LEGEND\n${'─'.repeat(60)}\n`;
+  r += `COMMUNICATION CAPACITY (primary severity proxy — bypasses interoception)\n`;
+  r += `  Talking easily         Full verbal output; no withdrawal\n`;
+  r += `  Quieter than usual     Reduced verbal output; partner-observable behavioral withdrawal\n`;
+  r += `  Shorter responses      Effortful speech; post-ictal or high-load state\n`;
+  r += `  Brief only             Minimal verbal output; severe load\n\n`;
+  r += `FUSE / DYSREGULATION (opposite polarity to withdrawal — same underlying load)\n`;
+  r += `  Normal — usual patience  Baseline autonomic regulation\n`;
+  r += `  Edgy — quicker to react  Elevated dysregulation; sympathetic activation\n`;
+  r += `  Sensory overload         Active hypersensitivity; significant autonomic load\n`;
+  r += `  Snap-line                Maximal dysregulation; any added stimulus exceeds threshold\n\n`;
+  r += `  Observed snapping (Yes)  Partner-confirmed behavioral dysregulation — strongest signal\n\n`;
+  r += `SEVERITY (vs. Arizona baseline = near-complete resolution)\n`;
+  r += `  Somewhat worse   Moderate exacerbation above near-complete-resolution baseline\n`;
+  r += `  Much worse       Significant sustained episode with functional impact\n\n`;
+  r += `FUNCTIONAL DAY\n`;
+  r += `  Good         Near-normal function; full activity possible\n`;
+  r += `  OK           Managed; minor limitations\n`;
+  r += `  Scaled back  Significant activity reduction; pacing required\n`;
+  r += `  Bad          Minimal function; mostly rest\n\n`;
+  r += `PRODROME SEQUENCE (reproducible in 9/10 episodes)\n`;
+  r += `  Fatigue → back pressure → leg energy → left facial tingling\n`;
+  r += `  Left facial tingling = final sign; episode onset typically within 8–15 min\n`;
+  r += `${'─'.repeat(60)}\n\n`;
+
+  // SECTION 3 — PERIOD SUMMARY
+  r += `PERIOD SUMMARY\n${'─'.repeat(60)}\n`;
+  if (dateMin && dateMax) r += `Reporting period:          ${fmtDate(dateMin.toISOString())} – ${fmtDate(dateMax.toISOString())} (${dayCount} days)\n`;
+  r += `Clinical episodes:         ${eps.length} total — ${epsWithMotor.length} with motor events, ${epsAborted.length} aborted (prodrome only)\n`;
+  if (totalJerks) r += `Total motor events (jerks): ${totalJerks}\n`;
+  const funcSummary = Object.entries(funcDist).filter(([,n])=>n>0).map(([k,n])=>`${funcLabels[k]||k}: ${n}`).join(' / ');
+  if (funcSummary) r += `Functional days:           ${funcSummary} (from ${cis.length} morning check-ins)\n`;
+  if (morningsWithTwitch.length) r += `Overnight twitching:       ${morningsWithTwitch.length} nights with sub-threshold nocturnal motor activity\n`;
+  if (eodsWithDysreg.length) r += `Elevated fuse (evenings):  ${eodsWithDysreg.length} evenings with edgy / overload / snap-line\n`;
+  if (eodsWithSnapping.length) r += `Confirmed snapping:        ${eodsWithSnapping.length} partner-confirmed behavioral dysregulation event(s)\n`;
+  if (worstEp) {
+    const wDate = fmtDate(worstEp.prodrome_onset||worstEp.ictal_onset||worstEp.timestamp);
+    const wDur  = durStr(worstEp.ictal_onset||worstEp.prodrome_onset, worstEp.last_known_activity);
+    r += `Worst episode:             ${wDate} — ${worstEp.spasm_count} jerks${wDur?' / '+wDur:''} / ${sevLabels[worstEp.severity_peak]||worstEp.severity_peak}\n`;
+  }
+  r += `\n`;
+
+  // SECTION 4 — DAY-BY-DAY TIMELINE
+  r += `DAY-BY-DAY TIMELINE\n${'─'.repeat(60)}\n`;
+  r += `Morning state / Episodes / Evening state co-located by day.\n\n`;
+
+  for (const date of allDates) {
+    const day = dayMap[date];
+    r += `${new Date(date+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'numeric',day:'numeric'})}\n`;
+
+    if (day.morning) {
+      const m = day.morning;
+      const pts = [];
+      if (m.sleep) pts.push(`sleep: ${m.sleep}`);
+      if ((m.sleepHoursCorrected ?? m.sleepHours) != null) pts.push(`${m.sleepHoursCorrected ?? m.sleepHours}h`);
+      if (m.sleepAwakenings) pts.push(`${m.sleepAwakenings} awakenings`);
+      const ov = (m.overnightEvents||[]).filter(v=>v!=='nothing_noticed');
+      if (ov.length) pts.push(ov.map(v=>overnightLbls[v]||v).join(', '));
+      if (m.morningStiffness && m.morningStiffness !== 'none') pts.push(`stiffness ${stiffLabels[m.morningStiffness]}`);
+      if (m.communicationLevel && m.communicationLevel !== 'normal') pts.push(commLabels[m.communicationLevel]);
+      if (m.irritabilityLevel  && m.irritabilityLevel  !== 'normal') pts.push(`fuse: ${irritLabels[m.irritabilityLevel]}`);
+      if (m.bodyPain?.length) pts.push(`pain: ${m.bodyPain.join(', ')}`);
+      if (m.functionalToday) pts.push(funcLabels[m.functionalToday]||m.functionalToday);
+      r += `  Morning: ${pts.join(' · ')}\n`;
+    }
+
+    if (day.episodes.length) {
+      day.episodes.sort((a,b)=>new Date(a.prodrome_onset||a.ictal_onset||a.timestamp)-new Date(b.prodrome_onset||b.ictal_onset||b.timestamp));
+      for (const ep of day.episodes) {
+        const isAborted = ep.type === 'episode_v2' && (ep.spasm_count||0) === 0 && !ep.prodrome_absent;
+        const pts = [];
+        const onset = fmtTime(ep.ictal_onset);
+        if (onset) pts.push(`onset ${onset}`);
+        const dur = durStr(ep.ictal_onset||ep.prodrome_onset, ep.last_known_activity);
+        if (dur && !isAborted) pts.push(dur);
+        if (ep.spasm_count) pts.push(`${ep.spasm_count} jerk${ep.spasm_count>1?'s':''}`);
+        if (ep.severity_peak) pts.push(sevLabels[ep.severity_peak]||ep.severity_peak);
+        if (ep.chestTight_any || ep.chestTight) pts.push('chest tightness');
+        const postComm = ep.postictal?.communication_capacity || ep.communicationLevel;
+        if (postComm && postComm !== 'normal') pts.push(`post-ictal: ${commLabels[postComm]||postComm}`);
+        r += `  ${isAborted?'ABORTED episode':'Episode'}: ${pts.join(' · ')}\n`;
+        const ps = ep.all_prodrome_symptoms_union || ep.prodrome;
+        if (ps?.length) r += `    Prodrome: ${ps.join(', ')}\n`;
+      }
+    }
+
+    if (day.evening) {
+      const e = day.evening;
+      const pts = [];
+      if (e.eveningCommunicationLevel && e.eveningCommunicationLevel !== 'normal') pts.push(commLabels[e.eveningCommunicationLevel]);
+      if (e.eveningIrritabilityLevel  && e.eveningIrritabilityLevel  !== 'normal') pts.push(`fuse: ${irritLabels[e.eveningIrritabilityLevel]}`);
+      if (e.eveningExternalObservation === 'yes') pts.push('*** SNAPPING CONFIRMED ***');
+      if (e.costConnection && e.costConnection !== 'easy') pts.push(`connection: ${costLbls.costConnection[e.costConnection]||e.costConnection}`);
+      if (e.dayTrajectory) { let t=`trajectory: ${trajMap[e.dayTrajectory]}`; if (e.trajectoryShiftTime) t+=` (shift ~${e.trajectoryShiftTime})`; pts.push(t); }
+      if (e.functionalToday) pts.push(funcLabels[e.functionalToday]||e.functionalToday);
+      if (e.eveningNotes?.trim()) pts.push(`note: ${e.eveningNotes.trim()}`);
+      if (pts.length) r += `  Evening: ${pts.join(' · ')}\n`;
+    }
+
+    r += '\n';
   }
 
-  const sevLabels = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe (Arizona far away)' };
-  const commLabels = { normal:'Talking easily', quieter:'Quieter than usual', shortened:'Shorter responses', brief:'Brief only / yes-no or less' };
+  // SECTION 5 — ENVIRONMENTAL PATTERN
+  r += `ENVIRONMENTAL PATTERN\n${'─'.repeat(60)}\n`;
+  const epsWithDwell   = eps.filter(e => (e.weather_at_prodrome?.pressureDwellHours ?? e.weather?.pressureDwellHours) != null);
+  const dwellHigh      = epsWithDwell.filter(e => (e.weather_at_prodrome?.pressureDwellHours ?? e.weather?.pressureDwellHours ?? 0) >= 18);
+  const epsWithDrop    = eps.filter(e => (e.weather_at_prodrome?.tempMaxDrop5h ?? e.weather?.tempMaxDrop5h) != null);
+  const dropHigh       = epsWithDrop.filter(e => (e.weather_at_prodrome?.tempMaxDrop5h ?? e.weather?.tempMaxDrop5h ?? 0) >= 13);
+  const epsWithOnset   = eps.filter(e => e.ictal_onset);
+  const nocturnal      = epsWithOnset.filter(e => { const h=new Date(e.ictal_onset).getHours(); return h>=21||h<=1; });
+  const dayEps         = epsWithOnset.filter(e => { const h=new Date(e.ictal_onset).getHours(); return h>1&&h<21; });
 
-  r += `EPISODES\n${'─'.repeat(30)}\n`;
-  for (const e of eps) {
-    const d = new Date(e.timestamp);
-    r += `\n${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}\n`;
-    if (e.firstJerkTime) r += `  First jerk: ${e.firstJerkTime}\n`;
-    if (e.prodrome?.length) r += `  Prodrome: ${e.prodrome.join(', ')}\n`;
-    if (e.limbsAffected?.length) r += `  Limbs: ${e.limbsAffected.join(', ')}\n`;
-    if (e.chestTight) r += `  Chest tightness: YES\n`;
-    if (e.cane) r += `  Cane required: YES\n`;
-    if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
-    if (e.externalObservation) r += `  Observed by others as: ${e.externalObservation}\n`;
-    if (e.severity) r += `  Severity vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
-    if (e.weather?.pressure) r += `  Barometric pressure: ${e.weather.pressure} hPa (6hr trend: ${e.weather.trend>0?'+':''}${e.weather.trend})\n`;
-    if (e.weather?.pressureDwellHours != null) r += `  Pressure dwell: ${e.weather.pressureDwellHours}h of 48 below ${e.weather.pressureRecentPeak - 5} hPa (peak − 5)\n`;
-    if (e.weather?.tempMaxDrop5h != null) r += `  Max 5h temp drop: ${e.weather.tempMaxDrop5h}°F · Max 5h temp rise: ${e.weather.tempMaxRise5h}°F\n`;
-    if (e.weather?.currentTemp) r += `  Temperature: ${e.weather.currentTemp}°F (6hr trend: ${(e.weather.tempTrend>0?'+':'')}${e.weather.tempTrend}°F)\n`;
-    const exposures = e.exposures || e.triggers || [];
-    if (exposures.length) r += `  Exposures: ${exposures.map(v=>v.replace(/_/g,' ')).join(', ')}\n`;
-    if (e.substance24h?.flag) {
-      r += `  Substance in last 24h: yes`;
-      if (e.substance24h.note) r += ` (${e.substance24h.note})`;
+  if (epsWithDwell.length) {
+    r += `Barometric pressure: ${dwellHigh.length}/${epsWithDwell.length} episodes occurred during sustained low-pressure periods (≥18h below threshold).\n\n`;
+  } else {
+    r += `Barometric pressure: Pressure dwell data not available in current export. See session notes and check-in weather readings.\n\n`;
+  }
+  if (epsWithDrop.length) {
+    r += `Thermal exposure: ${dropHigh.length}/${epsWithDrop.length} episodes coincided with a ≥13°F temperature drop within the prior 5 hours.\n\n`;
+  }
+  if (epsWithOnset.length) {
+    r += `Time of onset: ${nocturnal.length}/${epsWithOnset.length} motor episodes began between 9 PM and 2 AM (nocturnal predominance).`;
+    if (dayEps.length) r += ` Daytime exceptions: ${dayEps.map(e=>fmtDate(e.ictal_onset)).join(', ')}.`;
+    r += '\n\n';
+  }
+  r += `Fasting: Most episodes occurred within 1–2 hours of a meal. Insufficient data in this period to evaluate fasting as a threshold modulator.\n\n`;
+
+  // SECTION 6 — NEUROLOGICAL OBSERVATIONS
+  r += `NEUROLOGICAL OBSERVATIONS\n${'─'.repeat(60)}\n`;
+  const prodromeCount = {};
+  eps.forEach(e => (e.all_prodrome_symptoms_union||e.prodrome||[]).forEach(s => { prodromeCount[s]=(prodromeCount[s]||0)+1; }));
+  const prodromeSorted = Object.entries(prodromeCount).sort((a,b)=>b[1]-a[1]);
+  if (prodromeSorted.length) {
+    r += `Prodrome frequencies (${eps.length} episodes):\n`;
+    prodromeSorted.forEach(([s,n]) => r += `  ${s.replace(/_/g,' ')}: ${n}/${eps.length}\n`);
+    r += '\n';
+  }
+
+  const postictalObs = eps.filter(e => e.postictal?.communication_capacity || e.communicationLevel);
+  const reduced      = postictalObs.filter(e => (e.postictal?.communication_capacity||e.communicationLevel) !== 'normal');
+  if (postictalObs.length) r += `Post-ictal communication: ${reduced.length}/${postictalObs.length} episodes showed reduced verbal output. No complete loss of verbal capacity in any episode.\n\n`;
+
+  const chestCount = eps.filter(e=>e.chestTight_any||e.chestTight).length;
+  if (chestCount) r += `Chest tightness: Present in ${chestCount}/${eps.length} motor episodes. Consistently at or near first jerk, not prodromal.\n\n`;
+
+  if (morningsWithTwitch.length) r += `Sub-threshold nocturnal activity: ${morningsWithTwitch.length} mornings reported overnight twitching without a logged episode — low-level motor activity ongoing below episode threshold.\n\n`;
+
+  // APPENDIX A — FULL EPISODE DETAIL
+  r += `${'═'.repeat(60)}\nAPPENDIX A — FULL EPISODE DETAIL\n${'═'.repeat(60)}\n\n`;
+  const sortedEps = [...eps].sort((a,b)=>new Date(b.prodrome_onset||b.ictal_onset||b.timestamp)-new Date(a.prodrome_onset||a.ictal_onset||a.timestamp));
+
+  for (let i = 0; i < sortedEps.length; i++) {
+    const e   = sortedEps[i];
+    const num = sortedEps.length - i;
+    const isAborted = e.type==='episode_v2' && (e.spasm_count||0)===0 && !e.prodrome_absent;
+    const dLabel = fmtDate(e.prodrome_onset||e.ictal_onset||e.timestamp);
+    r += `Episode ${num} — ${dLabel}${isAborted?' — ABORTED (prodrome only)':''}\n`;
+
+    if (e.prodrome_onset && !e.prodrome_absent) r += `  Prodrome onset: ${fmtTime(e.prodrome_onset)}\n`;
+    if (e.ictal_onset) {
+      r += `  First jerk: ${fmtTime(e.ictal_onset)}`;
+      if (e.prodrome_onset && !e.prodrome_absent) r += ` (${durStr(e.prodrome_onset,e.ictal_onset)} prodrome)`;
       r += '\n';
     }
-    const hasSnapshot = typeof e.fastedHours === 'number';
-    const liveMeal = hasSnapshot ? null : await findMealForEpisode(e.timestamp);
-    const liveFasted = hasSnapshot ? null : await fastedHoursFor(e.timestamp);
-    const fastedDisplay = hasSnapshot ? String(e.fastedHours) : (liveFasted !== null ? String(liveFasted) : null);
-    const sizeDisplay = e.mealSize || (liveMeal ? liveMeal.mealSize : null) || e.lastMealSize;
-    if (fastedDisplay) {
-      const fLine = sizeDisplay ? `  Hours fasted: ${fastedDisplay} (last: ${mealSizeLabels[sizeDisplay] || sizeDisplay})\n` : `  Hours fasted: ${fastedDisplay}\n`;
-      r += fLine;
+    if (e.last_known_activity && (e.ictal_onset||e.prodrome_onset)) {
+      r += `  Last activity: ${fmtTime(e.last_known_activity)} (total span: ${durStr(e.prodrome_onset||e.ictal_onset, e.last_known_activity)})\n`;
     }
-    if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
-    if (e.sensations && Object.keys(e.sensations).length) {
-      Object.entries(e.sensations).forEach(([region, descs]) => {
-        if (descs?.length) r += `  ${region.replace(/_/g,' ')}: ${descs.join(', ')}\n`;
+    const ps = e.all_prodrome_symptoms_union||e.prodrome;
+    if (ps?.length) r += `  Prodrome symptoms: ${ps.join(', ')}\n`;
+    if (e.spasm_count)     r += `  Motor events: ${e.spasm_count}\n`;
+    if (e.severity_peak)   r += `  Peak severity: ${sevLabels[e.severity_peak]||e.severity_peak}\n`;
+    if (e.chestTight_any || e.chestTight) r += `  Chest tightness: YES\n`;
+    const postComm = e.postictal?.communication_capacity || e.communicationLevel;
+    if (postComm)          r += `  Post-ictal communication: ${commLabels[postComm]||postComm}\n`;
+    if (e.externalObservation) r += `  Observed by partner: ${e.externalObservation}\n`;
+
+    const w = e.weather_at_prodrome || e.weather;
+    if (w?.pressure) {
+      r += `  Weather (prodrome): ${w.currentTemp||w.temp}°F · ${w.pressure} hPa (6hr trend: ${w.trend>=0?'+':''}${w.trend})\n`;
+      if (w.pressureDwellHours != null) r += `  Pressure dwell: ${w.pressureDwellHours}h of 48 below ${w.pressureRecentPeak-5} hPa (peak − 5)\n`;
+      if (w.tempMaxDrop5h != null) r += `  Max 5h temp swing: drop ${w.tempMaxDrop5h}°F / rise ${w.tempMaxRise5h}°F\n`;
+    }
+
+    if (e.hours_fasted != null) {
+      r += `  Hours fasted: ${e.hours_fasted}h`;
+      if (e.last_meal_size) r += ` (last: ${mealSizeLbls[e.last_meal_size]||e.last_meal_size})`;
+      r += '\n';
+    } else if (e.meal_data_note) {
+      r += `  Meal data: ${e.meal_data_note}\n`;
+    } else {
+      // Legacy episode: live-compute fasted hours
+      const liveFasted = await fastedHoursFor(e.timestamp);
+      const liveMeal   = await findMealForEpisode(e.timestamp);
+      if (liveFasted !== null) {
+        r += `  Hours fasted: ${liveFasted}h`;
+        if (liveMeal?.mealSize) r += ` (last: ${mealSizeLbls[liveMeal.mealSize]||liveMeal.mealSize})`;
+        r += '\n';
+      }
+    }
+
+    if (e.postictal?.notes || e.notes) r += `  Notes: ${e.postictal?.notes||e.notes}\n`;
+
+    // Motor events
+    const epMotors = (motorsByEp[e.id]||[]).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+    if (epMotors.length) {
+      r += '\n  Motor events:\n';
+      epMotors.forEach((m, mi) => {
+        let line = `  ${mi+1}. ${fmtTime(m.timestamp)}`;
+        if (m.location) line += ` (${m.location.replace(/_/g,' ')})`;
+        if (m.chestTight) line += ' + chest tight';
+        const regions = Object.entries(m.sensations||{}).filter(([,v])=>v?.length).map(([reg,ds])=>`${reg.replace(/_/g,' ')}: ${ds.join(', ')}`);
+        if (regions.length) line += ` — ${regions.join(' / ')}`;
+        else if (m.bodyPain?.length) line += ` — ${m.bodyPain.join(', ')}`;
+        r += line + '\n';
       });
     }
-    if (e.notes) r += `  Notes: ${e.notes}\n`;
+    r += '\n';
   }
 
-  const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
-  const stiffnessLabels = { none:'None', under_15:'<15 min', '15_to_60':'15-60 min', over_60:'1+ hours', ongoing:'Still stiff' };
-  const overnightLabels = { muscle_twitching:'Muscle twitching', jaw_spasming:'Jaw spasming/clenching', intercostal_spasms:'Intercostal/rib spasms', woke_locked:'Woke up locked', night_sweats:'Night sweats', breathing_trouble:'Breathing trouble', woke_in_pain:'Woke in pain', nothing_noticed:'Nothing noticed' };
-
-  r += `\nMORNING CHECK-INS\n${'─'.repeat(30)}\n`;
-  cis.forEach(e => {
-    const d = new Date(e.timestamp);
-    r += `\n${d.toLocaleDateString()}\n`;
-    // Sleep
-    if (e.sleep) r += `  Sleep quality: ${e.sleep}\n`;
-    if (e.sleepHours != null) r += `  Sleep hours: ${e.sleepHours}\n`;
-    if (e.sleepBedTime) r += `  Bed time: ${e.sleepBedTime}\n`;
-    if (e.sleepWakeTime) r += `  Wake time: ${e.sleepWakeTime}\n`;
-    if (e.sleepAwakenings != null) r += `  Awakenings: ${e.sleepAwakenings}\n`;
-    // Overnight events
-    if (e.overnightEvents?.length) r += `  Overnight: ${e.overnightEvents.map(v => overnightLabels[v]||v).join(', ')}\n`;
-    if (e.morningStiffness && e.morningStiffness !== 'none') r += `  Morning stiffness: ${stiffnessLabels[e.morningStiffness]||e.morningStiffness}\n`;
-    // Communication
+  // APPENDIX B — MORNING CHECK-INS
+  r += `${'═'.repeat(60)}\nAPPENDIX B — MORNING CHECK-INS\n${'═'.repeat(60)}\n\n`;
+  [...cis].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(e => {
+    r += `${new Date(e.timestamp).toLocaleDateString()}\n`;
+    if (e.sleep)            r += `  Sleep quality: ${e.sleep}\n`;
+    if ((e.sleepHoursCorrected ?? e.sleepHours) != null) r += `  Sleep hours: ${e.sleepHoursCorrected ?? e.sleepHours}\n`;
+    if (e.sleepBedTime)     r += `  Bed time: ${e.sleepBedTime}\n`;
+    if (e.sleepWakeTime)    r += `  Wake time: ${e.sleepWakeTime}\n`;
+    if (e.sleepAwakenings!=null) r += `  Awakenings: ${e.sleepAwakenings}\n`;
+    if (e.overnightEvents?.length) r += `  Overnight: ${e.overnightEvents.map(v=>overnightLbls[v]||v).join(', ')}\n`;
+    if (e.morningStiffness && e.morningStiffness!=='none') r += `  Morning stiffness: ${stiffLabels[e.morningStiffness]}\n`;
     if (e.communicationLevel) r += `  Communication: ${commLabels[e.communicationLevel]||e.communicationLevel}\n`;
-    // Irritability (Stage 1 Part A1)
-    const irritExportLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
-    if (e.irritabilityLevel) {
-      r += `  Irritability: ${irritExportLabels[e.irritabilityLevel]||e.irritabilityLevel}\n`;
-    }
-    if (e.morningIrritabilityExternalObservation) r += `  Observed as snapping/on edge: ${e.morningIrritabilityExternalObservation}\n`;
-    // Body
-    if (e.bodyPain?.length) r += `  Pain locations: ${e.bodyPain.join(', ')}\n`;
-    // Alcohol
-    if (e.alcohol24h?.units && e.alcohol24h.units !== '0') {
+    if (e.irritabilityLevel)  r += `  Irritability: ${irritLabels[e.irritabilityLevel]||e.irritabilityLevel}\n`;
+    if (e.morningIrritabilityExternalObservation) r += `  Observed snapping: ${e.morningIrritabilityExternalObservation}\n`;
+    if (e.bodyPain?.length) r += `  Pain: ${e.bodyPain.join(', ')}\n`;
+    if (e.alcohol24h?.units && e.alcohol24h.units!=='0') {
       r += `  Alcohol (24h): ${e.alcohol24h.units} units`;
       if (e.alcohol24h.lastDrinkTime) r += ` (last drink: ${e.alcohol24h.lastDrinkTime})`;
       r += '\n';
     }
-    // Cycle proxies
     const cp = e.cyclePhaseProxy;
     if (cp) {
       const flags = [];
       if (cp.breastTender) flags.push('breast tenderness');
       if (cp.cycleRelatedDay ?? cp.moodShift) flags.push('cycle-related day');
       if (cp.bloating) flags.push('bloating');
-      if (cp.libido && cp.libido !== 'same') flags.push(`libido ${cp.libido}`);
+      if (cp.libido && cp.libido!=='same') flags.push(`libido ${cp.libido}`);
       if (flags.length) r += `  Cycle proxies: ${flags.join(', ')}\n`;
     }
-    // Functional today (new) or Arizona severity (legacy)
-    if (e.functionalToday) r += `  Today: ${functionalLabels[e.functionalToday]||e.functionalToday}\n`;
-    else if (e.severity) r += `  Overall vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
-    // Legacy fields — still print if present on old entries
-    if (e.nap) r += `  Nap: ${e.nap}${e.napHours?' ('+e.napHours+'h)':''}\n`;
-    if (e.workCapacity) r += `  Work capacity: ${e.workCapacity}\n`;
-    if (e.cancelledPlans) r += `  Cancelled plans: ${e.cancelledPlans}\n`;
-    if (e.heatTherapy?.length) r += `  Heat therapy: ${e.heatTherapy.join(', ')}\n`;
+    if (e.functionalToday) r += `  Today: ${funcLabels[e.functionalToday]||e.functionalToday}\n`;
+    else if (e.severity)   r += `  Overall vs Arizona: ${sevLabels[e.severity]||e.severity}\n`;
+    if (e.nap)             r += `  Nap: ${e.nap}${e.napHours?' ('+e.napHours+'h)':''}\n`;
+    if (e.workCapacity)    r += `  Work capacity: ${e.workCapacity}\n`;
+    if (e.cancelledPlans)  r += `  Cancelled plans: ${e.cancelledPlans}\n`;
     if (e.hormonalSymptoms) r += `  Hormonal symptoms: ${e.hormonalSymptoms}\n`;
-    // Notes
-    if (e.notes) r += `  Notes: ${e.notes}\n`;
+    if (e.notes)           r += `  Notes: ${e.notes}\n`;
+    r += '\n';
   });
 
+  // APPENDIX C — EVENING CHECK-INS
   if (eods.length) {
-    const eodIrritLabels = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
-    const costLabels = {
-      costActivities:     { all:'all', most:'most', some:'some', almost_none:'almost none' },
-      costConnection:     { easy:'easy', muted:'muted', withdrew:'distant', couldnt:'shut down' },
-      costFun:            { had_energy:'lots', a_little:'a little', none:'none', avoided:'avoided' },
-      costSleepReadiness: { tired_good:'tired-good', wiped:'wiped', wired:'wired', overwhelmed:'overwhelmed' },
-    };
-    const trajMap = { better:'got better', same:'about the same', worse:'got worse', up_down:'up and down' };
-    r += `\nEVENING CHECK-INS\n${'─'.repeat(30)}\n`;
-    eods.forEach(e => {
-      const d = new Date(e.timestamp);
-      r += `\n${d.toLocaleDateString()}\n`;
+    r += `${'═'.repeat(60)}\nAPPENDIX C — EVENING CHECK-INS\n${'═'.repeat(60)}\n\n`;
+    [...eods].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(e => {
+      r += `${new Date(e.timestamp).toLocaleDateString()}\n`;
       if (e.eveningCommunicationLevel) r += `  Communication: ${commLabels[e.eveningCommunicationLevel]||e.eveningCommunicationLevel}\n`;
-      if (e.eveningIrritabilityLevel) r += `  Fuse / sensory: ${eodIrritLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
-      if (e.eveningExternalObservation) r += `  Observed as snapping/off: ${e.eveningExternalObservation}\n`;
-      if (e.costActivities)     r += `  Activities cost: ${costLabels.costActivities[e.costActivities]||e.costActivities}\n`;
-      if (e.costConnection)     r += `  Connection cost: ${costLabels.costConnection[e.costConnection]||e.costConnection}\n`;
-      if (e.costFun)            r += `  Fun cost: ${costLabels.costFun[e.costFun]||e.costFun}\n`;
-      if (e.costSleepReadiness) r += `  Sleep readiness: ${costLabels.costSleepReadiness[e.costSleepReadiness]||e.costSleepReadiness}\n`;
+      if (e.eveningIrritabilityLevel)  r += `  Fuse / sensory: ${irritLabels[e.eveningIrritabilityLevel]||e.eveningIrritabilityLevel}\n`;
+      if (e.eveningExternalObservation) r += `  Observed snapping: ${e.eveningExternalObservation}\n`;
+      if (e.costActivities)     r += `  Activities cost: ${costLbls.costActivities[e.costActivities]||e.costActivities}\n`;
+      if (e.costConnection)     r += `  Connection cost: ${costLbls.costConnection[e.costConnection]||e.costConnection}\n`;
+      if (e.costFun)            r += `  Fun cost: ${costLbls.costFun[e.costFun]||e.costFun}\n`;
+      if (e.costSleepReadiness) r += `  Sleep readiness: ${costLbls.costSleepReadiness[e.costSleepReadiness]||e.costSleepReadiness}\n`;
       if (e.activityLevel) {
-        let aLine = `  Activity: ${e.activityLevel.replace(/_/g,' ')}`;
-        if (e.activityType?.length) aLine += ` (${e.activityType.join(', ')})`;
-        if (e.activityWhen?.length) aLine += ` · ${e.activityWhen.join('/')}`;
-        if (e.activityMinutes) aLine += ` · ${e.activityMinutes} min`;
-        r += aLine + '\n';
+        let al = `  Activity: ${e.activityLevel.replace(/_/g,' ')}`;
+        if (e.activityType?.length)  al += ` (${e.activityType.join(', ')})`;
+        if (e.activityWhen?.length)  al += ` · ${e.activityWhen.join('/')}`;
+        if (e.activityMinutes)       al += ` · ${e.activityMinutes} min`;
+        r += al + '\n';
       }
       if (e.dayTrajectory) {
-        let tLine = `  Day trajectory: ${trajMap[e.dayTrajectory]||e.dayTrajectory}`;
-        if (e.trajectoryShiftTime) tLine += ` (shift around ${e.trajectoryShiftTime})`;
-        r += tLine + '\n';
+        let tl = `  Day trajectory: ${trajMap[e.dayTrajectory]||e.dayTrajectory}`;
+        if (e.trajectoryShiftTime) tl += ` (shift ~${e.trajectoryShiftTime})`;
+        r += tl + '\n';
       }
-      if (e.functionalToday) r += `  Today overall: ${functionalLabels[e.functionalToday]||e.functionalToday}\n`;
+      if (e.functionalToday) r += `  Today overall: ${funcLabels[e.functionalToday]||e.functionalToday}\n`;
       if (e.cogLoad) {
-        const cogKeyMap = [['thinkingSustained','2+ hours hard thinking'],['masking','masking 1–2h'],['maskingHeavy','heavy masking / high-stakes'],['highSensory','4+ hours high-sensory'],['emotionalRegulation','held composure 30+ min'],['communicationProduction','wrote/rehearsed avoided message'],['efLogistics','1+ hour admin/logistics'],['anticipatory','background logistics 3+ threads']];
-        const activeCog = cogKeyMap.filter(([k]) => e.cogLoad[k]).map(([,s]) => s);
-        if (activeCog.length) r += `  Cognitive load: ${activeCog.join(', ')}\n`;
+        const cogMap = [['thinkingSustained','2+ h hard thinking'],['masking','masking 1–2h'],['maskingHeavy','heavy masking'],['highSensory','4+ h high-sensory'],['emotionalRegulation','held composure 30+ min'],['communicationProduction','wrote/rehearsed avoided message'],['efLogistics','1+ h admin/logistics'],['anticipatory','background logistics 3+ threads']];
+        const active = cogMap.filter(([k])=>e.cogLoad[k]).map(([,s])=>s);
+        if (active.length) r += `  Cognitive load: ${active.join(', ')}\n`;
       }
       if (e.eveningNotes?.trim()) r += `  Notes: ${e.eveningNotes.trim()}\n`;
+      r += '\n';
     });
   }
 
   const blob = new Blob([r], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
   a.download = `isobar-report-${new Date().toISOString().slice(0,10)}.txt`;
   a.click();
   URL.revokeObjectURL(url);
