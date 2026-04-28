@@ -430,17 +430,6 @@
         </div>
       </div>
 
-      <!-- Backup prompt (weekly) -->
-      <div class="card" id="backup-card" style="display:none;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06)">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-          <div style="min-width:0;flex:1">
-            <div class="setting-label" id="backup-card-title">Back up your data</div>
-            <div class="setting-sub" id="backup-card-sub"></div>
-          </div>
-          <div id="backup-card-actions" style="display:flex;gap:6px;flex-shrink:0"></div>
-        </div>
-      </div>
-
       <!-- Stats -->
       <div class="card">
         <div class="stats-grid">
@@ -529,6 +518,10 @@
         <div class="setting-row">
           <div><div class="setting-label">Export Data</div><div class="setting-sub">Download your full history</div></div>
           <button class="btn small" onclick="exportReport()">Export</button>
+        </div>
+        <div class="setting-row" id="backup-setting-row">
+          <div><div class="setting-label">Back up your data</div><div class="setting-sub" id="backup-setting-sub"></div></div>
+          <div id="backup-setting-actions" style="flex-shrink:0"></div>
         </div>
         <div class="setting-row">
           <div><div class="setting-label">Import from JSON</div><div class="setting-sub">Restore from a backup file</div></div>
@@ -1140,6 +1133,7 @@ function startEpisode() {
     communicationLevel: null, externalObservation: null,
     exposures: [], substance24h: { flag: false, note: '' }, notes: '',
     weather: currentWeather || null, severity: null,
+    fastedHours: null, mealTimestamp: null, mealSize: null,
   };
   epStep = 0;
   switchView('episode');
@@ -1268,6 +1262,9 @@ async function renderEpStep() {
       const epRefIso = new Date(epRefMs).toISOString();
       const fastedMeal = await findMealForEpisode(epRefIso);
       const hoursFasted = await fastedHoursFor(epRefIso);
+      epData.fastedHours = hoursFasted;
+      epData.mealTimestamp = fastedMeal ? fastedMeal.timestamp : null;
+      epData.mealSize = fastedMeal ? (fastedMeal.mealSize || null) : null;
       const mealCaption = fastedMeal
         ? `since ${mealSizeLabels[fastedMeal.mealSize] || 'meal'} at ${new Date(fastedMeal.timestamp).toLocaleString([], { weekday:'short', hour:'numeric', minute:'2-digit' })}`
         : 'no meal logged before this episode';
@@ -1349,7 +1346,8 @@ async function saveEpisode() {
   // Prevent double-save
   const key = `entry:${new Date(epData.timestamp).getTime()}`;
   if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
-  await DB.set(key, epData);
+  const ok = await DB.set(key, epData);
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
   showToast('Episode saved ✓');
   goHome();
   updateStats();
@@ -1508,9 +1506,11 @@ function renderCiStep() {
         </div>
         <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
           <span class="label">Cycle phase symptoms today</span>
+          <div class="toggle-pair" style="margin-bottom:10px">
+            <button class="toggle-btn ${cp.cycleRelatedDay?'on':''}" onclick="ciData.cyclePhaseProxy.cycleRelatedDay=!ciData.cyclePhaseProxy.cycleRelatedDay;renderCiStep()">Today is a cycle day</button>
+          </div>
           <div class="toggle-pair" style="flex-wrap:wrap;gap:8px">
             <button class="toggle-btn ${cp.breastTender?'on':''}" onclick="ciData.cyclePhaseProxy.breastTender=!ciData.cyclePhaseProxy.breastTender;renderCiStep()">Breast tenderness</button>
-            <button class="toggle-btn ${cp.cycleRelatedDay?'on':''}" onclick="ciData.cyclePhaseProxy.cycleRelatedDay=!ciData.cyclePhaseProxy.cycleRelatedDay;renderCiStep()">Overall: today feels cycle-related</button>
             <button class="toggle-btn ${cp.bloating?'on':''}" onclick="ciData.cyclePhaseProxy.bloating=!ciData.cyclePhaseProxy.bloating;renderCiStep()">Bloating / fluid retention</button>
           </div>
           <div style="margin-top:12px">
@@ -1616,7 +1616,8 @@ async function saveCheckin() {
   }
   const key = `entry:${new Date(ciData.timestamp).getTime()}`;
   if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
-  await DB.set(key, ciData);
+  const ok = await DB.set(key, ciData);
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
   showToast('Check-in saved ✓');
   goHome();
   updateStats();
@@ -1652,10 +1653,11 @@ async function renderLog() {
     const irritVal = isEod ? e.eveningIrritabilityLevel : e.irritabilityLevel;
     let mealChip = '';
     if (isEp) {
-      const meal = await findMealForEpisode(e.timestamp);
-      const hours = await fastedHoursFor(e.timestamp);
-      if (meal && hours !== null) {
-        const size = mealSizeLabels[meal.mealSize] || meal.mealSize;
+      const hasSnapshot = typeof e.fastedHours === 'number';
+      const hours = hasSnapshot ? e.fastedHours : await fastedHoursFor(e.timestamp);
+      const mealSz = e.mealSize || (!hasSnapshot ? (await findMealForEpisode(e.timestamp))?.mealSize : null);
+      if (hours !== null && mealSz) {
+        const size = mealSizeLabels[mealSz] || mealSz;
         mealChip = `<span class="entry-chip mono">${hours}h fasted (last: ${size})</span>`;
       } else {
         mealChip = `<span class="entry-chip" style="color:var(--dim)">no meal logged</span>`;
@@ -1727,7 +1729,6 @@ async function renderLog() {
 
 // ── STATS ─────────────────────────────────────────────────────
 async function updateStats() {
-  renderBackupCard();
   renderEodCard();
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
@@ -1807,11 +1808,11 @@ async function exportReport() {
       if (e.substance24h.note) r += ` (${e.substance24h.note})`;
       r += '\n';
     }
-    // Compute fasted-hours live from meal history; fall back to legacy snapshot fields for pre-derived-model entries
-    const liveMeal = await findMealForEpisode(e.timestamp);
-    const liveFasted = await fastedHoursFor(e.timestamp);
-    const fastedDisplay = liveFasted !== null ? String(liveFasted) : (e.fastedHours || null);
-    const sizeDisplay = liveMeal ? liveMeal.mealSize : e.lastMealSize;
+    const hasSnapshot = typeof e.fastedHours === 'number';
+    const liveMeal = hasSnapshot ? null : await findMealForEpisode(e.timestamp);
+    const liveFasted = hasSnapshot ? null : await fastedHoursFor(e.timestamp);
+    const fastedDisplay = hasSnapshot ? String(e.fastedHours) : (liveFasted !== null ? String(liveFasted) : null);
+    const sizeDisplay = e.mealSize || (liveMeal ? liveMeal.mealSize : null) || e.lastMealSize;
     if (fastedDisplay) {
       const fLine = sizeDisplay ? `  Hours fasted: ${fastedDisplay} (last: ${mealSizeLabels[sizeDisplay] || sizeDisplay})\n` : `  Hours fasted: ${fastedDisplay}\n`;
       r += fLine;
@@ -1953,35 +1954,19 @@ function switchView(name) {
   document.getElementById('app').scrollTop = 0;
   if (name === 'log') renderLog();
   if (name === 'home') updateStats();
-  if (name === 'settings') { renderStorageIndicator(); renderEodHourSetting(); }
+  if (name === 'settings') { renderStorageIndicator(); renderEodHourSetting(); renderBackupSetting(); }
 }
 
-const BACKUP_INTERVAL_MS = 7 * 86400000;
-const BACKUP_SNOOZE_MS = 86400000;
-
-async function renderBackupCard() {
-  const card = document.getElementById('backup-card');
-  if (!card) return;
+async function renderBackupSetting() {
+  const sub = document.getElementById('backup-setting-sub');
+  const actions = document.getElementById('backup-setting-actions');
+  if (!sub || !actions) return;
   const lastAt = await DB.get('backup:lastAt');
-  const snoozedUntil = await DB.get('backup:snoozedUntil');
-  const now = Date.now();
-  if (snoozedUntil && now < snoozedUntil) { card.style.display = 'none'; return; }
-  const elapsed = lastAt ? now - lastAt : Infinity;
-  if (elapsed <= BACKUP_INTERVAL_MS) { card.style.display = 'none'; return; }
-  const days = lastAt ? Math.floor(elapsed / 86400000) : null;
-  document.getElementById('backup-card-title').textContent = 'Back up your data';
-  document.getElementById('backup-card-sub').textContent = days
-    ? `${days} days since last backup`
+  const days = lastAt ? Math.floor((Date.now() - lastAt) / 86400000) : null;
+  sub.textContent = lastAt
+    ? (days === 0 ? 'Backed up today' : `${days} days since last backup`)
     : 'No backup yet';
-  document.getElementById('backup-card-actions').innerHTML =
-    '<button class="btn small secondary" onclick="snoozeBackup()">Later</button>' +
-    '<button class="btn small" onclick="triggerBackup()">Back up</button>';
-  card.style.display = 'block';
-}
-
-async function snoozeBackup() {
-  await DB.set('backup:snoozedUntil', Date.now() + BACKUP_SNOOZE_MS);
-  renderBackupCard();
+  actions.innerHTML = '<button class="btn small" onclick="triggerBackup()">Back up</button>';
 }
 
 async function triggerBackup() {
@@ -2015,17 +2000,17 @@ async function triggerBackup() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  document.getElementById('backup-card-title').textContent = 'Did it save?';
-  document.getElementById('backup-card-sub').textContent = 'Confirm only after you see it in Files / Downloads.';
-  document.getElementById('backup-card-actions').innerHTML =
-    '<button class="btn small secondary" onclick="renderBackupCard()">Not yet</button>' +
+  document.getElementById('backup-setting-sub').textContent = 'Confirm only after you see it in Files / Downloads.';
+  document.getElementById('backup-setting-actions').innerHTML =
+    '<button class="btn small secondary" onclick="renderBackupSetting()">Not yet</button>' +
     '<button class="btn small" onclick="confirmBackupSaved()">Done</button>';
 }
 
 async function confirmBackupSaved() {
-  await DB.set('backup:lastAt', Date.now());
+  const ok = await DB.set('backup:lastAt', Date.now());
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
   await DB.remove('backup:snoozedUntil');
-  document.getElementById('backup-card').style.display = 'none';
+  renderBackupSetting();
   showToast('Backup confirmed');
 }
 
@@ -2225,7 +2210,8 @@ function renderEvening() {
 async function saveEod() {
   const key = `entry:${new Date(eodData.timestamp).getTime()}`;
   if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
-  await DB.set(key, eodData);
+  const ok = await DB.set(key, eodData);
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
   showToast('Evening check-in saved ✓');
   goHome();
   updateStats();
@@ -2504,14 +2490,15 @@ async function saveMeal() {
   if (ts > new Date(now.getTime() + 60000)) { showToast('Time cannot be in the future', 'var(--warn)'); return; }
   if ((now - ts) > 86400000) { showToast('Time cannot be more than 24h ago', 'var(--warn)'); return; }
 
-  // Editing an existing meal: remove the prior meal:entry record so derived calcs see only one truth
+  const newTsMs = ts.getTime();
+  const ok = await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
+  // Remove the prior record only after the new write succeeds; skip if timestamp unchanged (same key)
   const editingOldTs = picker?.dataset.editingOriginalTs;
   if (editingOldTs) {
     const oldMs = new Date(editingOldTs).getTime();
-    if (!isNaN(oldMs)) await DB.remove(`meal:entry:${oldMs}`);
+    if (!isNaN(oldMs) && oldMs !== newTsMs) await DB.remove(`meal:entry:${oldMs}`);
   }
-  const newTsMs = ts.getTime();
-  await DB.set(`meal:entry:${newTsMs}`, { timestamp: ts.toISOString(), type: 'meal', mealSize: size });
   showToast('Meal logged ✓');
   renderMealCard();
 }
