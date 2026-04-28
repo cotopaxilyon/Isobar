@@ -2091,7 +2091,7 @@ async function exportReport() {
     r += `${new Date(e.timestamp).toLocaleDateString()}\n`;
     if (e.sleep)            r += `  Sleep quality: ${e.sleep}\n`;
     if ((e.sleepHoursCorrected ?? e.sleepHours) != null) r += `  Sleep hours: ${e.sleepHoursCorrected ?? e.sleepHours}\n`;
-    if (e.sleepBedTime)     r += `  Bed time: ${e.sleepBedTime}\n`;
+    if (e.sleepBedTime)     r += `  Bed time: ${e.sleepBedTimeCorrected ?? e.sleepBedTime}\n`;
     if (e.sleepWakeTime)    r += `  Wake time: ${e.sleepWakeTime}\n`;
     if (e.sleepAwakenings!=null) r += `  Awakenings: ${e.sleepAwakenings}\n`;
     if (e.overnightEvents?.length) r += `  Overnight: ${e.overnightEvents.map(v=>overnightLbls[v]||v).join(', ')}\n`;
