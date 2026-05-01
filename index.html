@@ -712,11 +712,11 @@ const DB = (() => {
       if (idb) {
         try {
           const rows = await idb.kv.where('key').startsWith('entry:').toArray();
-          items = rows.map(r => r.value).filter(Boolean);
+          items = rows.map(r => r.value ? { ...r.value, _idbKey: r.key } : null).filter(Boolean);
         } catch { items = []; }
       } else {
         const ks = Object.keys(localStorage).filter(k => k.startsWith('entry:'));
-        items = ks.map(k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }).filter(Boolean);
+        items = ks.map(k => { try { const v = JSON.parse(localStorage.getItem(k)); return v ? { ...v, _idbKey: k } : null; } catch { return null; } }).filter(Boolean);
       }
       return items.filter(e => e && typeof e.timestamp === 'string' && e.type)
                   .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -3122,11 +3122,11 @@ async function saveIntervention() {
   const ts = new Date(`${ivData._date}T${timeStr}`);
   if (isNaN(ts.getTime())) { showToast('Invalid time', 'var(--warn)'); return; }
   const timestamp = ts.toISOString();
-  const key = `entry:${ts.getTime()}`;
-  if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
+  const key = `entry:${Date.now()}`;
   const entry = {
     type: 'intervention_event',
     timestamp,
+    _idbKey: key,
     episode_id: null,
     category: ivData.category,
     specific: ivData.specific,
@@ -3160,7 +3160,7 @@ async function renderInterventionStrip() {
   const iv = eligible[0];
   const tStr = new Date(iv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const label = iv.specific || iv.category;
-  const ivKey = `entry:${new Date(iv.timestamp).getTime()}`;
+  const ivKey = iv._idbKey;
 
   const chips = IV_EFFECTS.map(e =>
     `<button class="choice" style="font-size:12px;padding:6px 10px" onclick="applyStripEffect('${ivKey}','${e.id}')">${e.label}</button>`
