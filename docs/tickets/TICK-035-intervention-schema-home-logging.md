@@ -1,7 +1,7 @@
 ---
 id: TICK-035
 title: Intervention event schema + standalone home-screen logging + opportunistic strip
-status: pending
+status: ready-for-qa
 priority: urgent
 wave: additive
 created: 2026-05-01
@@ -9,7 +9,8 @@ updated: 2026-05-01
 plan: docs/plans/PLAN_intervention_log.md
 test: null
 linear:
-  parent: ISO-96
+  id: ISO-97
+  parent: null
   test: ""
 depends-on: []
 supersedes: []
