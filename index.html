@@ -405,6 +405,9 @@
         </div>
       </div>
 
+      <!-- Intervention effect-capture strip -->
+      <div id="intervention-strip" style="display:none;margin-bottom:12px"></div>
+
       <!-- Action buttons -->
       <div class="action-grid">
         <button type="button" class="action-card" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3)" onclick="startEpisode()">
@@ -416,6 +419,11 @@
           <span class="icon">📋</span>
           <div class="title" style="color:var(--accent)">Morning Check-in</div>
           <div class="sub">How you woke up</div>
+        </button>
+        <button type="button" class="action-card" style="background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);grid-column:1/-1" onclick="startIntervention()">
+          <span class="icon">💊</span>
+          <div class="title" style="color:var(--good)">Took something</div>
+          <div class="sub">Log meds, heat, anything</div>
         </button>
       </div>
 
@@ -494,6 +502,21 @@
       </div>
       <div class="step-content" id="eod-content"></div>
       <div class="step-actions" id="eod-actions"></div>
+    </div>
+  </div>
+
+  <!-- INTERVENTION FORM VIEW -->
+  <div id="view-intervention" class="view">
+    <div style="padding:0 16px">
+      <div class="step-header">
+        <button class="back-btn" onclick="goHome()">←</button>
+        <div>
+          <div class="step-title">Log Intervention</div>
+          <div class="step-sub">What you took or tried</div>
+        </div>
+      </div>
+      <div class="step-content" id="iv-content"></div>
+      <div class="step-actions" id="iv-actions"></div>
     </div>
   </div>
 
@@ -1737,7 +1760,7 @@ async function renderLog() {
   const functionalColors = { good:'var(--good)', ok:'var(--accent)', scaled_back:'var(--warn)', bad:'var(--danger)' };
   const functionalLabels = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
   const commColors = { normal:'var(--good)', quieter:'var(--warn)', shortened:'#f97316', brief:'var(--danger)' };
-  el.innerHTML = (await Promise.all(entries.map(async e => {
+  el.innerHTML = (await Promise.all(entries.filter(e => e.type !== 'intervention_event').map(async e => {
     const d = new Date(e.timestamp);
     const isEp = e.type === 'episode';
     const isCi = e.type === 'checkin';
@@ -1829,6 +1852,7 @@ async function renderLog() {
 // ── STATS ─────────────────────────────────────────────────────
 async function updateStats() {
   renderEodCard();
+  renderInterventionStrip();
   const entries = await DB.allEntries();
   const eps = entries.filter(e => e.type === 'episode');
   const cis = entries.filter(e => e.type === 'checkin');
@@ -1880,7 +1904,7 @@ async function exportReport() {
   });
 
   // ── Label maps ──
-  const sevLabels      = { similar:'Near baseline', somewhat:'Somewhat worse', much_worse:'Much worse', far_away:'Severe' };
+  const sevLabels      = { similar:'Near baseline', somewhat:'Somewhat worse than baseline', much_worse:'Much worse than baseline', far_away:'Severe' };
   const commLabels     = { normal:'Talking easily', quieter:'Quieter than usual', shortened:'Shorter responses', brief:'Brief only' };
   const irritLabels    = { normal:'Normal — usual patience', edgy:'Edgy — quicker to react', overload:'Sensory overload', snap_line:'Snap-line — anything extra is too much' };
   const funcLabels     = { good:'Good day', ok:'OK day', scaled_back:'Scaled back', bad:'Bad day' };
@@ -1955,8 +1979,8 @@ async function exportReport() {
   r += `  Snap-line                Maximal dysregulation; any added stimulus exceeds threshold\n\n`;
   r += `  Observed snapping (Yes)  Partner-confirmed behavioral dysregulation — strongest signal\n\n`;
   r += `SEVERITY (vs. Arizona baseline = near-complete resolution)\n`;
-  r += `  Somewhat worse   Moderate exacerbation above near-complete-resolution baseline\n`;
-  r += `  Much worse       Significant sustained episode with functional impact\n\n`;
+  r += `  Somewhat worse than baseline   Moderate exacerbation above near-complete-resolution baseline\n`;
+  r += `  Much worse than baseline       Significant sustained episode with functional impact\n\n`;
   r += `FUNCTIONAL DAY\n`;
   r += `  Good         Near-normal function; full activity possible\n`;
   r += `  OK           Managed; minor limitations\n`;
@@ -2265,6 +2289,7 @@ function switchView(name) {
   document.getElementById('app').scrollTop = 0;
   if (name === 'log') renderLog();
   if (name === 'home') updateStats();
+  if (name === 'intervention') renderInterventionForm();
   if (name === 'settings') { renderStorageIndicator(); renderEodHourSetting(); renderBackupSetting(); }
 }
 
@@ -2956,6 +2981,239 @@ function startMealTimer() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
+// ── INTERVENTION LOG ──────────────────────────────────────────
+
+const IV_CATEGORIES = [
+  { id: 'cannabinoid',     label: 'Cannabinoid' },
+  { id: 'mcas_rescue',     label: 'MCAS rescue' },
+  { id: 'gaba_agonist',    label: 'GABA agonist' },
+  { id: 'muscle_relaxant', label: 'Muscle relaxant' },
+  { id: 'otc_analgesic',   label: 'OTC analgesic' },
+  { id: 'heat',            label: 'Heat', sub: 'For heat used in response to symptoms. Routine heating pad use belongs in the morning check-in.' },
+  { id: 'hydration',       label: 'Hydration' },
+  { id: 'rest_position',   label: 'Rest position' },
+  { id: 'supplement',      label: 'Supplement' },
+  { id: 'other',           label: 'Other' },
+];
+
+const IV_EFFECTS = [
+  { id: 'stopped_episode', label: 'Stopped episode' },
+  { id: 'reduced_pain',    label: 'Reduced pain' },
+  { id: 'no_change',       label: 'No change' },
+  { id: 'made_worse',      label: 'Made it worse' },
+  { id: 'unsure',          label: 'Not sure' },
+];
+
+let ivData = {};
+
+async function getIvRecent(category) {
+  return (await DB.get(`intervention:recent:${category}`)) || [];
+}
+
+async function setIvRecent(category, specific) {
+  const current = await getIvRecent(category);
+  const updated = [specific, ...current.filter(s => s !== specific)].slice(0, 3);
+  await DB.set(`intervention:recent:${category}`, updated);
+}
+
+function startIntervention() {
+  const now = new Date();
+  ivData = {
+    _date: localDateISO(now),
+    _time: now.toTimeString().slice(0, 5),
+    category: null,
+    specific: '',
+    _recent: [],
+    perceived_effect: null,
+    time_to_effect_min: null,
+    notes: '',
+  };
+  switchView('intervention');
+}
+
+function renderInterventionForm() {
+  const content = document.getElementById('iv-content');
+  const actions = document.getElementById('iv-actions');
+  if (!content || !actions) return;
+
+  const catChips = IV_CATEGORIES.map(c =>
+    `<button class="choice${ivData.category === c.id ? ' selected' : ''}" onclick="selectIvCategory('${c.id}')" style="white-space:nowrap">${c.label}</button>`
+  ).join('');
+
+  const recentChips = ivData._recent.length
+    ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">${ivData._recent.map(s =>
+        `<button class="choice" onclick="document.getElementById('iv-specific').value=this.dataset.v;ivData.specific=this.dataset.v" data-v="${s.replace(/"/g,'&quot;')}" style="font-size:12px;padding:6px 10px">${s}</button>`
+      ).join('')}</div>`
+    : '';
+
+  const heatNote = ivData.category === 'heat'
+    ? `<div style="font-size:12px;color:var(--dim);margin-top:6px">${IV_CATEGORIES.find(c=>c.id==='heat').sub}</div>`
+    : '';
+
+  const effectChips = IV_EFFECTS.map(e =>
+    `<button class="choice${ivData.perceived_effect === e.id ? ' selected' : ''}" onclick="selectIvEffect('${e.id}')">${e.label}</button>`
+  ).join('');
+
+  const showTTE = ivData.perceived_effect === 'stopped_episode' || ivData.perceived_effect === 'reduced_pain';
+  const tteOpts = [5, 15, 30, 60];
+  const tteSection = showTTE ? `
+    <div style="margin-top:14px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:8px">Time to effect <span style="font-size:11px">(optional)</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${tteOpts.map(m => `<button class="choice${ivData.time_to_effect_min === m ? ' selected' : ''}" onclick="ivData.time_to_effect_min=${m};renderInterventionForm()" style="padding:6px 12px">${m === 60 ? '60+ min' : m + ' min'}</button>`).join('')}
+        <input type="number" id="iv-tte-custom" placeholder="custom" style="width:80px;padding:6px 10px;font-size:13px" min="1" max="240" value="${(ivData.time_to_effect_min && !tteOpts.includes(ivData.time_to_effect_min)) ? ivData.time_to_effect_min : ''}" oninput="ivData.time_to_effect_min=Number(this.value)||null">
+      </div>
+    </div>` : '';
+
+  content.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:6px">Time</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" id="iv-date" value="${ivData._date}" style="flex:1;padding:8px 10px;font-size:14px" onchange="ivData._date=this.value">
+        ${renderTimePicker24('iv-time', ivData._time, "ivData._time=getTimePickerValue('iv-time')||ivData._time")}
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:8px">Category</div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">${catChips}</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:6px">What specifically? <span style="font-size:11px">(optional)</span></div>
+      <input type="text" id="iv-specific" placeholder="${ivData.category ? 'e.g. THC 2mg sublingual' : 'Select a category first'}" value="${ivData.specific.replace(/"/g,'&quot;')}" ${ivData.category ? '' : 'disabled'} oninput="ivData.specific=this.value">
+      ${recentChips}
+      ${heatNote}
+    </div>
+    <div style="margin-bottom:4px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:8px">What did you notice after? <span style="font-size:11px">(optional)</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${effectChips}</div>
+      ${tteSection}
+    </div>
+    <div style="margin-top:14px">
+      <div style="font-size:13px;color:var(--dim);margin-bottom:6px">Notes <span style="font-size:11px">(optional)</span></div>
+      <input type="text" id="iv-notes" placeholder="Any other details" value="${ivData.notes.replace(/"/g,'&quot;')}" oninput="ivData.notes=this.value">
+    </div>
+  `;
+
+  actions.innerHTML = `<button class="btn full" onclick="saveIntervention()">Save</button>`;
+}
+
+async function selectIvCategory(cat) {
+  ivData.specific = document.getElementById('iv-specific')?.value ?? ivData.specific;
+  ivData.category = cat;
+  const recent = await getIvRecent(cat);
+  ivData._recent = recent;
+  ivData.specific = recent[0] || '';
+  renderInterventionForm();
+}
+
+function selectIvEffect(effect) {
+  ivData.perceived_effect = ivData.perceived_effect === effect ? null : effect;
+  if (ivData.perceived_effect !== 'stopped_episode' && ivData.perceived_effect !== 'reduced_pain') {
+    ivData.time_to_effect_min = null;
+  }
+  renderInterventionForm();
+}
+
+async function saveIntervention() {
+  if (!ivData.category) { showToast('Select a category first', 'var(--warn)'); return; }
+  ivData.specific = document.getElementById('iv-specific')?.value || '';
+  ivData.notes = document.getElementById('iv-notes')?.value || '';
+  const timeStr = getTimePickerValue('iv-time') || ivData._time;
+  const ts = new Date(`${ivData._date}T${timeStr}`);
+  if (isNaN(ts.getTime())) { showToast('Invalid time', 'var(--warn)'); return; }
+  const timestamp = ts.toISOString();
+  const key = `entry:${ts.getTime()}`;
+  if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
+  const entry = {
+    type: 'intervention_event',
+    timestamp,
+    episode_id: null,
+    category: ivData.category,
+    specific: ivData.specific,
+    perceived_effect: ivData.perceived_effect,
+    time_to_effect_min: ivData.time_to_effect_min,
+    notes: ivData.notes,
+    _promptDismissed: false,
+  };
+  const ok = await DB.set(key, entry);
+  if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
+  if (ivData.specific) await setIvRecent(ivData.category, ivData.specific);
+  showToast('Intervention saved ✓');
+  goHome();
+}
+
+async function renderInterventionStrip() {
+  const el = document.getElementById('intervention-strip');
+  if (!el) return;
+  const now = Date.now();
+  const windowMs = 120 * 60 * 1000;
+  const entries = await DB.allEntries();
+  const eligible = entries.filter(e =>
+    e.type === 'intervention_event' &&
+    e.perceived_effect === null &&
+    !e._promptDismissed &&
+    (now - new Date(e.timestamp).getTime()) <= windowMs
+  ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (!eligible.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+  const iv = eligible[0];
+  const tStr = new Date(iv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const label = iv.specific || iv.category;
+  const ivKey = `entry:${new Date(iv.timestamp).getTime()}`;
+
+  const chips = IV_EFFECTS.map(e =>
+    `<button class="choice" style="font-size:12px;padding:6px 10px" onclick="applyStripEffect('${ivKey}','${e.id}')">${e.label}</button>`
+  ).join('');
+
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:12px 14px">
+    <div style="font-size:13px;color:var(--mid);margin-bottom:8px">💊 You logged <strong>${label}</strong> at ${tStr} — notice anything?</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      ${chips}
+      <button class="choice" style="font-size:12px;padding:6px 10px;color:var(--dim)" onclick="dismissStripPrompt('${ivKey}')">Not now</button>
+    </div>
+    <div id="strip-tte" style="display:none;margin-top:10px"></div>
+  </div>`;
+}
+
+async function applyStripEffect(ivKey, effect) {
+  const entry = await DB.get(ivKey);
+  if (!entry) return;
+  entry.perceived_effect = effect;
+  await DB.set(ivKey, entry);
+  if (effect === 'stopped_episode' || effect === 'reduced_pain') {
+    const tteEl = document.getElementById('strip-tte');
+    if (tteEl) {
+      tteEl.style.display = 'block';
+      tteEl.innerHTML = `<div style="font-size:12px;color:var(--dim);margin-bottom:6px">Time to effect?</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${[5,15,30,60].map(m => `<button class="choice" style="font-size:12px;padding:6px 10px" onclick="applyStripTTE('${ivKey}',${m})">${m === 60 ? '60+ min' : m + ' min'}</button>`).join('')}
+          <button class="choice" style="font-size:12px;padding:6px 10px;color:var(--dim)" onclick="applyStripTTE('${ivKey}',null)">Skip</button>
+        </div>`;
+    }
+  } else {
+    const el = document.getElementById('intervention-strip');
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+  }
+}
+
+async function applyStripTTE(ivKey, minutes) {
+  if (minutes !== null) {
+    const entry = await DB.get(ivKey);
+    if (entry) { entry.time_to_effect_min = minutes; await DB.set(ivKey, entry); }
+  }
+  const el = document.getElementById('intervention-strip');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+async function dismissStripPrompt(ivKey) {
+  const entry = await DB.get(ivKey);
+  if (entry) { entry._promptDismissed = true; await DB.set(ivKey, entry); }
+  const el = document.getElementById('intervention-strip');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
 async function initApp() {
   await migrateMealsToHistory();
   await migrateCheckinSleepHours();
