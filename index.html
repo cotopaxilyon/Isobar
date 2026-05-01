@@ -1104,6 +1104,7 @@ function bodyMap(selected, activeColor = 'var(--accent)') {
 // ── EPISODE FORM ──────────────────────────────────────────────
 let epData = {};
 let epStep = 0;
+let epFromDraft = false;
 
 const EP_STEPS = [
   { title: 'Episode Timing', sub: '' },
@@ -1122,7 +1123,18 @@ const localDateISO = d => {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 };
 
-function startEpisode() {
+async function startEpisode() {
+  const draft = await DB.get('draft:episode');
+  if (draft) {
+    epData = draft.data;
+    epStep = draft.step;
+    epFromDraft = true;
+    switchView('episode');
+    renderEpStep();
+    showToast('Draft restored');
+    return;
+  }
+  epFromDraft = false;
   const now = new Date();
   epData = {
     type: 'episode', timestamp: now.toISOString(),
@@ -1140,7 +1152,27 @@ function startEpisode() {
   renderEpStep();
 }
 
+async function clearEpisodeDraft() {
+  await DB.remove('draft:episode');
+  epFromDraft = false;
+  const now = new Date();
+  epData = {
+    type: 'episode', timestamp: now.toISOString(),
+    entryDate: localDateISO(now),
+    prodromeTime: now.toTimeString().slice(0,5), firstJerkTime: '',
+    prodrome: [], limbsAffected: [], bodyPain: [], sensations: {},
+    chestTight: false, cane: false,
+    communicationLevel: null, externalObservation: null,
+    exposures: [], substance24h: { flag: false, note: '' }, notes: '',
+    weather: currentWeather || null, severity: null,
+    fastedHours: null, mealTimestamp: null, mealSize: null,
+  };
+  epStep = 0;
+  renderEpStep();
+}
+
 async function renderEpStep() {
+  if (epStep > 0 || epFromDraft) DB.set('draft:episode', { data: epData, step: epStep });
   const s = EP_STEPS[epStep];
   document.getElementById('ep-title').textContent = s.title;
   document.getElementById('ep-sub').textContent = s.sub;
@@ -1328,8 +1360,11 @@ async function renderEpStep() {
 
   // Actions
   const isLast = epStep === EP_STEPS.length - 1;
+  const epLeftBtn = epFromDraft && epStep === 0
+    ? `<button class="btn secondary small" onclick="clearEpisodeDraft()">Start fresh</button>`
+    : (epStep > 0 ? `<button class="btn secondary small" onclick="epStep--;renderEpStep()">Back</button>` : '');
   document.getElementById('ep-actions').innerHTML = `
-    ${epStep > 0 ? `<button class="btn secondary small" onclick="epStep--;renderEpStep()">Back</button>` : ''}
+    ${epLeftBtn}
     <div style="flex:1"></div>
     <button class="btn${isLast?' ':' '}" onclick="${isLast ? 'saveEpisode()' : 'epStep++;renderEpStep()'}">
       ${isLast ? 'Save Episode' : 'Next →'}
@@ -1348,6 +1383,8 @@ async function saveEpisode() {
   if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
   const ok = await DB.set(key, epData);
   if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
+  epFromDraft = false;
+  await DB.remove('draft:episode');
   showToast('Episode saved ✓');
   goHome();
   updateStats();
@@ -1356,6 +1393,7 @@ async function saveEpisode() {
 // ── CHECKIN FORM ──────────────────────────────────────────────
 let ciData = {};
 let ciStep = 0;
+let ciFromDraft = false;
 
 const CI_STEPS = [
   { title: 'Overnight Sleep', sub: '' },
@@ -1365,7 +1403,18 @@ const CI_STEPS = [
   { title: 'How are you starting today?', sub: '' },
 ];
 
-function startCheckin() {
+async function startCheckin() {
+  const draft = await DB.get('draft:checkin');
+  if (draft) {
+    ciData = draft.data;
+    ciStep = draft.step;
+    ciFromDraft = true;
+    switchView('checkin');
+    renderCiStep();
+    showToast('Draft restored');
+    return;
+  }
+  ciFromDraft = false;
   const ciNow = new Date();
   ciData = {
     type: 'checkin', timestamp: ciNow.toISOString(),
@@ -1392,7 +1441,29 @@ function startCheckin() {
   renderCiStep();
 }
 
+async function clearCheckinDraft() {
+  await DB.remove('draft:checkin');
+  ciFromDraft = false;
+  const ciNow = new Date();
+  ciData = {
+    type: 'checkin', timestamp: ciNow.toISOString(),
+    entryDate: localDateISO(ciNow),
+    sleep: null, sleepBedTime: null, sleepWakeTime: null, sleepAwakenings: null,
+    overnightEvents: [], morningStiffness: null,
+    communicationLevel: null, externalObservation: null,
+    irritabilityLevel: null, morningIrritabilityExternalObservation: null,
+    bodyPain: [],
+    alcohol24h: { units: null, lastDrinkTime: null },
+    cyclePhaseProxy: { breastTender: false, cycleRelatedDay: false, bloating: false, libido: null },
+    functionalToday: null,
+    notes: '', weather: currentWeather || null,
+  };
+  ciStep = 0;
+  renderCiStep();
+}
+
 function renderCiStep() {
+  if (ciStep > 0 || ciFromDraft) DB.set('draft:checkin', { data: ciData, step: ciStep });
   const s = CI_STEPS[ciStep];
   document.getElementById('ci-title').textContent = s.title;
   document.getElementById('ci-sub').textContent = s.sub;
@@ -1595,8 +1666,11 @@ function renderCiStep() {
   document.getElementById('ci-content').innerHTML = html;
 
   const isLast = ciStep === CI_STEPS.length - 1;
+  const ciLeftBtn = ciFromDraft && ciStep === 0
+    ? `<button class="btn secondary small" onclick="clearCheckinDraft()">Start fresh</button>`
+    : (ciStep > 0 ? `<button class="btn secondary small" onclick="ciStep--;renderCiStep()">Back</button>` : '');
   document.getElementById('ci-actions').innerHTML = `
-    ${ciStep > 0 ? `<button class="btn secondary small" onclick="ciStep--;renderCiStep()">Back</button>` : ''}
+    ${ciLeftBtn}
     <div style="flex:1"></div>
     <button class="btn" onclick="${isLast ? 'saveCheckin()' : 'ciStep++;renderCiStep()'}">
       ${isLast ? 'Save Check-in' : 'Next →'}
@@ -1641,6 +1715,8 @@ async function saveCheckin() {
   if (await DB.get(key)) { showToast('Already saved'); goHome(); return; }
   const ok = await DB.set(key, ciData);
   if (!ok) { showToast('Save failed — try again', 'var(--danger)'); return; }
+  ciFromDraft = false;
+  await DB.remove('draft:checkin');
   showToast('Check-in saved ✓');
   goHome();
   updateStats();

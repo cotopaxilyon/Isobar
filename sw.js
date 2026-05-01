@@ -1,4 +1,4 @@
-const CACHE = 'isobar-v13';
+const CACHE = 'isobar-v15';
 // Relative paths — resolved against the SW script URL so the app is origin-agnostic.
 // See docs/ARCHITECTURE.md: no hardcoded base paths in shell assets.
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './vendor/dexie.min.js'];
