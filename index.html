@@ -1814,6 +1814,10 @@ async function renderLog() {
       })() : []),
       ...(isEod && e.cogLoad && ['thinkingSustained','masking','maskingHeavy','highSensory','emotionalRegulation','communicationProduction','efLogistics','anticipatory'].some(k => e.cogLoad[k])
         ? [`<span class="entry-chip" style="color:var(--mid)">cog-load</span>`] : []),
+      ...(isEod && e.socialLoad && ['advocacy','difficultInteraction','groupSetting','responsiveAvailability'].some(k => e.socialLoad[k])
+        ? [`<span class="entry-chip" style="color:var(--mid)">social-load</span>`] : []),
+      ...(isEod && e.emoLoad && ['conflict','significantNews','dreadLoop','witnessedDistress'].some(k => e.emoLoad[k])
+        ? [`<span class="entry-chip" style="color:var(--mid)">emo-load</span>`] : []),
       ...(isEp ? (Array.isArray(e.limbsAffected)?e.limbsAffected:[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(Array.isArray(e.bodyPain)?e.bodyPain:[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -2254,6 +2258,16 @@ async function exportReport() {
         const active = cogMap.filter(([k])=>e.cogLoad[k]).map(([,s])=>s);
         if (active.length) r += `  Cognitive load: ${active.join(', ')}\n`;
       }
+      if (e.socialLoad) {
+        const socialMap = [['advocacy','advocacy'],['difficultInteraction','difficult-interaction'],['groupSetting','group-setting'],['responsiveAvailability','responsive-availability'],['postHocProcessing','post-hoc-processing'],['newContext','new-context'],['obligationKept','obligation-kept']];
+        const active = socialMap.filter(([k])=>e.socialLoad[k]).map(([,s])=>s);
+        if (active.length) r += `  Social load: ${active.join(', ')}\n`;
+      }
+      if (e.emoLoad) {
+        const emoMap = [['conflict','conflict'],['significantNews','significant-news'],['dreadLoop','dread-loop'],['witnessedDistress','witnessed-distress'],['flashback','flashback']];
+        const active = emoMap.filter(([k])=>e.emoLoad[k]).map(([,s])=>s);
+        if (active.length) r += `  Emotional load: ${active.join(', ')}\n`;
+      }
       if (e.eveningNotes?.trim()) r += `  Notes: ${e.eveningNotes.trim()}\n`;
       r += '\n';
     });
@@ -2388,6 +2402,8 @@ function startEvening() {
     functionalToday: null,
     eveningNotes: '',
     cogLoad: { thinkingSustained: false, masking: false, maskingHeavy: false, highSensory: false, emotionalRegulation: false, communicationProduction: false, efLogistics: false, anticipatory: false },
+    socialLoad: { advocacy: false, difficultInteraction: false, groupSetting: false, responsiveAvailability: false, postHocProcessing: false, newContext: false, obligationKept: false },
+    emoLoad: { conflict: false, significantNews: false, dreadLoop: false, witnessedDistress: false, flashback: false },
   };
   switchView('evening');
   renderEvening();
@@ -2461,6 +2477,40 @@ function renderEvening() {
           const active = !!(eodData.cogLoad && eodData.cogLoad[item.key]);
           return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
             onclick="eodData.cogLoad.${item.key}=!eodData.cogLoad.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Social load today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'advocacy', label:'Medical / bureaucratic self-advocacy' },
+          { key:'difficultInteraction', label:'Difficult interpersonal interaction' },
+          { key:'groupSetting', label:'Group setting — 3+ people, 1+ hour' },
+          { key:'responsiveAvailability', label:"On call for someone else's needs" },
+          { key:'postHocProcessing', label:'Replayed or decoded a social interaction afterward' },
+          { key:'newContext', label:'New person or unfamiliar social setting' },
+          { key:'obligationKept', label:"Attended something you'd been dreading" },
+        ].map(item => {
+          const active = !!(eodData.socialLoad && eodData.socialLoad[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.socialLoad.${item.key}=!eodData.socialLoad.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Emotional load today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'conflict', label:'Conflict or rupture event' },
+          { key:'significantNews', label:'Significant news or awaited outcome' },
+          { key:'dreadLoop', label:'Dread / anxiety loop — 1+ hour' },
+          { key:'witnessedDistress', label:'Witnessed someone you care about struggling' },
+          { key:'flashback', label:'Emotional flashback' },
+        ].map(item => {
+          const active = !!(eodData.emoLoad && eodData.emoLoad[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.emoLoad.${item.key}=!eodData.emoLoad.${item.key};renderEvening()">${item.label}</button>`;
         }).join('')}
       </div>
     </div>
