@@ -1,7 +1,7 @@
 ---
 id: TICK-022
 title: EOD notes + dedicated log + export section
-status: pending
+status: shipped
 priority: high
 wave: 2
 created: 2026-04-20

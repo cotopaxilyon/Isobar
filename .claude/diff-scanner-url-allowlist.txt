@@ -7,6 +7,7 @@
 # Example: linear.app matches https://linear.app/issue/X and https://api.linear.app/y.
 
 linear.app
+cotopaxilyon.github.io
 hopkinsmedicine.org
 dev.to
 github.com/cotopaxilyon/Isobar

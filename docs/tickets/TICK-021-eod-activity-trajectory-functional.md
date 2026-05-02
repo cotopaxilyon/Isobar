@@ -1,7 +1,7 @@
 ---
 id: TICK-021
 title: EOD activity + single-shift trajectory + functionalToday
-status: pending
+status: shipped
 priority: high
 wave: 2
 created: 2026-04-20

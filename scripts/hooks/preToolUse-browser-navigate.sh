@@ -23,6 +23,7 @@ case "$url" in
   http://localhost:8765|http://localhost:8765/*) exit 0 ;;
   http://127.0.0.1:8000|http://127.0.0.1:8000/*) exit 0 ;;
   http://localhost:8000|http://localhost:8000/*) exit 0 ;;
+  https://cotopaxilyon.github.io|https://cotopaxilyon.github.io/*) exit 0 ;;
 esac
 
 jq -cn --arg u "$url" '{

@@ -1,7 +1,7 @@
 ---
 id: TICK-030
 title: EOD cognitive load anchor set — 8 items, 4 core + 3 extended, weighted
-status: pending
+status: shipped
 priority: high
 wave: 2
 created: 2026-04-23

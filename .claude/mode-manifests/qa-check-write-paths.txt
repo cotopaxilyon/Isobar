@@ -1,4 +1,11 @@
+/Users/cotopaxilyon/WebstormProjects/Isobar/docs/tickets/*.md
 /Users/cotopaxilyon/WebstormProjects/Isobar/docs/qa-fail/*.md
+/Users/cotopaxilyon/WebstormProjects/Isobar/docs/plans/*.md
+/Users/cotopaxilyon/WebstormProjects/Isobar/.claude/mode-manifests/qa-check-write-paths.txt
+/Users/cotopaxilyon/WebstormProjects/Isobar/.claude/mode-manifests/qa-check.txt
+/Users/cotopaxilyon/WebstormProjects/Isobar/.claude/mode-manifests/qa-check-comment-openers.txt
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/qa-watcher-seen.json
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/active-mode
+/Users/cotopaxilyon/WebstormProjects/Isobar/.claude/diff-scanner-url-allowlist.txt
 /Users/cotopaxilyon/WebstormProjects/Isobar/index.html
+/Users/cotopaxilyon/WebstormProjects/Isobar/sw.js

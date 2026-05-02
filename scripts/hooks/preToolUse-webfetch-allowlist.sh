@@ -56,13 +56,23 @@ case "$host" in
   dev.to)                        exit 0 ;;
   mesonet.agron.iastate.edu)     exit 0 ;;
   archive-api.open-meteo.com)    exit 0 ;;
+  pmc.ncbi.nlm.nih.gov)          exit 0 ;;
+  pubmed.ncbi.nlm.nih.gov)       exit 0 ;;
+  www.ncbi.nlm.nih.gov)          exit 0 ;;
+  link.springer.com)             exit 0 ;;
+  www.neurology.org)             exit 0 ;;
+  practicalneurology.com)        exit 0 ;;
+  www.frontiersin.org)           exit 0 ;;
+  www.neurology.org)             exit 0 ;;
+  onlinelibrary.wiley.com)       exit 0 ;;
+  www.psychiatrist.com)          exit 0 ;;
 esac
 
 jq -cn --arg u "$url" --arg h "$host" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
     permissionDecision: "deny",
-    permissionDecisionReason: ("WebFetch denied: " + (if $h == "" then ("unparsable url " + $u) else ("host " + $h) end) + " is not in the allowlist (www.hopkinsmedicine.org, dev.to, mesonet.agron.iastate.edu, archive-api.open-meteo.com). To add a domain, edit scripts/hooks/preToolUse-webfetch-allowlist.sh.")
+    permissionDecisionReason: ("WebFetch denied: " + (if $h == "" then ("unparsable url " + $u) else ("host " + $h) end) + " is not in the allowlist. To add a domain, edit scripts/hooks/preToolUse-webfetch-allowlist.sh.")
   }
 }'
 exit 0

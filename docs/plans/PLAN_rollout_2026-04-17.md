@@ -1,7 +1,7 @@
-revi2---
+---
 status: active — sequencing plan for the post-irritability-critical-review queue
 created: 2026-04-17
-last_updated: 2026-04-23 (Wave 1 closed)
+last_updated: 2026-05-01 (summary graph corrected; physician-report emergent work added; Decision #5 resolved — Wave 5 export trio before Wave 4)
 supersedes: any prior informal ticket ordering since the irritability plan refold
 ---
 
@@ -12,6 +12,18 @@ supersedes: any prior informal ticket ordering since the irritability plan refol
 Coordinate the currently-open planning docs into a single shippable order. Produced after the 16-item critical-review walkthrough of `PLAN_irritability_and_severity_mapping.md` locked a number of structural changes that interact with the morning-check-in and episode-phases plans already in the pipeline.
 
 This doc is the sequencing spec. Individual plans remain the source of truth for WHAT to build; this doc answers WHEN.
+
+---
+
+## Status snapshot — 2026-04-30
+
+Two changes since 2026-04-22:
+
+1. **Intervention log plan landed.** `PLAN_intervention_log.md` drafted 2026-04-30 in response to the patient's THC abort observation (low-dose THC reliably stops episodes; mechanism research in `project_thc_treatment_response.md` memory). Adds a new `intervention_event` entry type. Decomposed into TICK-035/036/037. **Not a numbered wave** — slots in as an urgent additive track because the highest-signal piece (TICK-035) has zero dependencies and every delayed day loses structured data on the strongest treatment-response observation in the dataset. See "Intervention log — urgent additive" section below.
+
+2. **Tier 1 trigger-surface expansion closed.** Audit of `index.html` on 2026-04-30 confirmed Tier 1 items 1–6 of `PLAN_trigger_surface_expansion.md` shipped piecemeal. Item 7 (aborted-episode intervention chips) is superseded by the intervention log. Tier 2/3 are deferred without an open decision pending. Open decision #3 closed.
+
+Everything in the 2026-04-22 snapshot below remains current except for those two points.
 
 ---
 
@@ -38,7 +50,8 @@ Five days since this plan was drafted. The shape has held, but the ticket number
 | `PLAN_morning_checkin.md` | ✅ fully shipped — TICK-005 closed 2026-04-22, all ACs verified 2026-04-23 | Wave 1 — Done |
 | `PLAN_episode_phases.md` | ❌ not started; TICK-006 drafted | Wave 2 |
 | `PLAN_irritability_and_severity_mapping.md` | 🚧 Stage 0+1 done; Stage 2 foundation done; cost/activity/notes tickets in Backlog (ISO-54/55/56) | Spans Stage 0 + Waves 1, 2, 3, 4 |
-| `PLAN_trigger_surface_expansion.md` | ❌ deferred; Tier-1 scope still awaiting user decision | Originally optional Wave 2 inclusion; now unclaimed |
+| `PLAN_trigger_surface_expansion.md` | ✅ Tier 1 shipped piecemeal (verified 2026-04-30); item 7 superseded by `PLAN_intervention_log.md`; Tier 2/3 deferred without open decision | Closed |
+| `PLAN_intervention_log.md` | ❌ tickets drafted (TICK-035/036/037), not started; specced 2026-04-30 | **Urgent additive** — not a numbered wave; see dedicated section below |
 | `PLAN_trigger_trap.md` | ❌ tickets drafted (ISO-57..64); no implementation started | **New Wave 5 (Places)** — see below |
 | `PLAN_autopilot_harness.md` | 🚧 harness live; Wave 6 canary still remaining on the injection-guardrails plan | Operational tool, not on this rollout |
 | `PLAN_injection_guardrails.md` | 🚧 Waves 1/2/2a/3/4/5/7/8/9/10 shipped; Wave 6 (canary) outstanding | Security floor; not a user-facing rollout wave |
@@ -100,22 +113,24 @@ Five days since this plan was drafted. The shape has held, but the ticket number
 
 ---
 
-## Wave 2 — Episode foundation + optional scope expansion — ❌ NOT STARTED
+## Wave 2 — Episode foundation — ❌ NOT STARTED
 
-### TICK-006 — Episode phases + Part A2/A3 + (optional) trigger-surface Tier 1
+### TICK-006 — Episode phases + Part A2/A3
 
 **Planned:**
 - `PLAN_episode_phases.md` in full (prodrome → per-spasm → postictal phase-based logging; integrates standalone muscle events).
 - `PLAN_irritability_and_severity_mapping.md` **Parts A2 + A3** (episode prodrome chip for `edgy/overstimulated`; per-spasm emotional-trigger toggle).
-- Optional: `PLAN_trigger_surface_expansion.md` Tier 1 exposure chips.
+- ~~Optional: `PLAN_trigger_surface_expansion.md` Tier 1 exposure chips.~~ **Removed 2026-04-30** — Tier 1 items 1–6 already shipped piecemeal; item 7 superseded by `PLAN_intervention_log.md`. No remaining Tier 1 scope.
 
 **Status:** not started. `docs/tickets/TICK-006-episode-phases.md` drafted, not in flight. Adjacent episode-form polish (ISO-50 chip ordering, ISO-36 L/R ordering, ISO-43 Recent Episodes) shipped around the bundle without touching the phase restructure.
 
 **Blockers:**
 - ~~Wave 1 bundle ambiguity~~ — **resolved 2026-04-23**. TICK-005 is fully done; Wave 1 gate is clear.
-- User decision on whether Tier 1 trigger-surface expansion is in v1 scope — still open (was open on 2026-04-17, still open on 2026-04-23).
+- ~~User decision on Tier 1 trigger-surface expansion scope~~ — **resolved 2026-04-30**. Closed; not blocking.
 
 **Recommendation before starting:** reconcile the TICK-006 draft with what actually shipped into the episode form in the interim (ISO-36, ISO-50, ISO-51 cycle-proxy chips, ISO-33 exposure backdating framing is still Backlog). Expect the draft to be partially redundant.
+
+**Pre-implementation note (2026-04-30):** if TICK-036 ships before Wave 2 (the recommended path — see Intervention Log section below), Wave 2 scope expands to migrate the legacy episode-wrap-up intervention step (Surface 2 in `PLAN_intervention_log.md`) into the active-episode banner's "Took something" button (Surface 3). Same data shape; surface change only. Bounded refactor — list once, account for in TICK-006 acceptance criteria when reconciliation happens.
 
 ---
 
@@ -195,9 +210,29 @@ Scope unchanged. Can ship in parallel with TICK-007.
 
 **Sub-ordering within Wave 5:**
 1. TICK-023/024/025 are export-only changes, no new schema — can ship first as a batch.
-2. TICK-026 unblocks TICK-027 and TICK-028.
-3. TICK-029 depends on TICK-028.
-4. TEST-028 pairs with TICK-028.
+2. **TICK-037** (intervention log export) lands after the export trio — interleaves intervention events into the per-episode block established by TICK-023/024/025. See Intervention Log section below.
+3. TICK-026 unblocks TICK-027 and TICK-028.
+4. TICK-029 depends on TICK-028.
+5. TEST-028 pairs with TICK-028.
+
+---
+
+## Intervention log — urgent additive (2026-04-30)
+
+Not a numbered wave. Three pieces with three different timings, driven by `PLAN_intervention_log.md`. Origin: the patient's reproducible THC abort observation; structured capture of treatment response across all intervention categories (cannabinoid, MCAS rescue, heat, hydration, etc.).
+
+| Ticket | Timing | Reasoning |
+|---|---|---|
+| **TICK-035** — schema + home-screen "Took something" card + opportunistic effect-capture strip | Ship now, parallel with anything | Zero dependencies. Additive: new entry type, new home-screen card. Doesn't touch `startEpisode()` or `exportReport()`. Every delayed day loses structured intervention data on the highest-signal treatment-response observation in the dataset. |
+| **TICK-036** — episode wrap-up intervention review (legacy flow) | Before Wave 2 | Builds against the legacy `startEpisode()` 9-step wizard. When Wave 2 lands, the wrap-up step (Surface 2) migrates into the active-episode banner's "Took something" button (Surface 3) — bounded refactor, same data shape. Alternative (waiting for Wave 2) costs every episode in the gap; Wave 2 is "drafted, not in flight" with no scheduled start. |
+| **TICK-037** — log view cards + export intervention timeline | After Wave 5 export trio (TICK-023/024/025) | Both touch `exportReport()`. Cleaner to plumb interventions through the new export structure (window split, parallel prodrome timelines, counter-example framing) than to merge concurrent edits. |
+
+**Coordination dependencies summarized:**
+- TICK-035: no dependencies, no blockers.
+- TICK-036: ships against legacy episode form; Wave 2 inherits a one-line scope expansion to migrate the surface.
+- TICK-037: ships after Wave 5 TICK-025; ordering inside Wave 5 is TICK-023→024→025→**037**→026→027→028→029.
+
+**Linear note:** when creating the parent issues for TICK-035/036/037, add the `agent-ok` label only after the pre-`agent-ok` checklist (`PROCESS.md`) passes for each. TICK-035 is the lowest-risk autopilot candidate; TICK-036 is borderline (touches the episode form); TICK-037 is risky (touches export rendering — manual review preferred).
 
 ---
 
@@ -209,6 +244,8 @@ Not on the original wave plan; emerged from postmortems or bug-hunt sessions.
 - **UX postmortem tickets** (ISO-65 backup-card placement, ISO-66 cycle-related day label). Both Todo. Followups from the 2026-04-19 backup-card + cycle toggle postmortem.
 - **Injection-guardrails plan** — security floor running underneath all this. Waves 1/2/2a/3/4/5/7/8/9/10 shipped and pushed. Only Wave 6 (canary) remains.
 - **qa-check workflow hardening** — advisory-verification discipline baked into the skill (2026-04-22) after ISO-68's "pure render issue" framing was relayed without tracing.
+- **Physician report + sleep pickers** (2026-04-28): ISO-91 (24h custom time pickers for prodrome/firstJerk), ISO-92 (sleep bed/wake time pickers), ISO-93 (exportReport restructured into specialist-readable clinical summary). All committed and pushed, QA Pass 2026-04-28. ISO-94 (episode time inputs, same picker treatment) in Backlog. ISO-95 (fix Appendix B bed-time to read `sleepBedTimeCorrected`) committed 2026-04-30.
+- **CBCT report ingested** — `CBCT Report.pdf` on disk; clinical summary docs (`Clinical_Summary_Lyon_20260428.*`, `Medical_Summary_Cotopaxi_Lyon_20260428.*`) drafted 2026-04-28 alongside the physician report work.
 
 None of these blocked or were blocked by a wave in the rollout plan; they're noted here so the Completed-by-date timeline reads honestly.
 
@@ -241,10 +278,10 @@ Wave 1: TICK-005 ✅ DONE (all ACs shipped piecemeal, verified 2026-04-23)
 Wave 2: TICK-006 (episode phases) ❌ NOT STARTED — drafted, not in flight
   │
   ▼
-Wave 3: TICK-018..022 (evening check-in) 🚧 2 of 5 DONE
+Wave 3: TICK-018..022 (evening check-in) 🚧 3 of 5 DONE
   • TICK-018 ✅ ISO-52
   • TICK-019 ✅ ISO-53
-  • TICK-020 ❌ ISO-54 Backlog (cost block — walkthrough needed first)
+  • TICK-020 ✅ ISO-54 (cost block — shipped 2026-04-23)
   • TICK-021 ❌ ISO-55 Backlog (activity + single-shift trajectory)
   • TICK-022 ❌ ISO-56 Backlog (notes + export)
   ├───────────────┐
@@ -257,23 +294,27 @@ TICK-007    TICK-008       ❌ NOT STARTED
   ▼
 Post-launch analytics (PROMIS, PEM, variance, axis consolidation)
 
-─── Parallel to Waves 2–4 ───
+─── Wave 5 export trio ships during Wave 3 data-accumulation wait; Wave 4 follows ───
 
-Wave 5: TICK-023..029 + TEST-028 (Places / Trigger-trap) ❌ NOT STARTED
-  • TICK-023/024/025 export-only batch
-  • TICK-026 schema
-  • TICK-027 ping capture
-  • TICK-028 Places view (TEST-028 pairs)
-  • TICK-029 export integration
+Wave 5 export batch (TICK-023→024→025) — ships before Wave 4
+  → TICK-037 (intervention export — after 025, before Wave 4)
+  → Wave 4 (composite engine — builds on established export structure)
+  → Wave 5 remainder: TICK-026 schema → TICK-027 ping → TICK-028 Places view (TEST-028) → TICK-029 export integration
+
+─── Urgent additive (not a wave) — 2026-04-30 ───
+
+TICK-035 (intervention schema + home logging + strip) — ship now, no deps
+TICK-036 (episode wrap-up intervention review) — before Wave 2
+TICK-037 (log view cards + export timeline) — after Wave 5 TICK-025
 ```
 
 ## Open decisions still owed by the user
 
 1. ~~**Wave 1 bundle reconciliation**~~ — **resolved 2026-04-23.** TICK-005 is fully done; all ACs verified in code. No remaining gaps.
-2. **Wave 2 bundle reconciliation** — re-read TICK-006 against the current episode form before starting; expect partial redundancy with ISO-33/36/50/51 work that shipped around it.
-3. **Tier 1 trigger-surface expansion scope** — `PLAN_trigger_surface_expansion.md` never got a user decision on v1 scope. Still open since 2026-04-17. Decide: include in Wave 2, fold into Wave 5, or defer?
+2. **Wave 2 bundle reconciliation** — re-read TICK-006 against the current episode form before starting; expect partial redundancy with ISO-33/36/50/51 work that shipped around it. **Note (2026-04-30):** if TICK-036 ships before Wave 2 (recommended), the Wave 2 bundle also inherits the Surface 2 → Surface 3 migration.
+3. ~~**Tier 1 trigger-surface expansion scope**~~ — **resolved 2026-04-30.** Audit confirmed Tier 1 items 1–6 shipped piecemeal in `index.html`; item 7 (aborted-episode intervention chips) is superseded by `PLAN_intervention_log.md`. Tier 2/3 are deferred without an open decision pending — they become open only when someone wants to build them.
 4. ~~**Social and emotional load anchor items** — walkthrough owed before TICK-020 implementation begins.~~ ✅ **Resolved 2026-04-23.** Social=7 items, Emotional=5 items (with documented 1-item deviation), both locked in Item 10.
-5. **Wave ordering: Wave 5 before or after Wave 4?** Wave 5 (Places) is independent of the composite engine but shares export surface. If export work happens in both, sequencing matters.
+5. ~~**Wave ordering: Wave 5 before or after Wave 4?**~~ **Resolved 2026-05-01.** Wave 5 export trio (TICK-023→024→025) ships first, then TICK-037 (intervention export), then Wave 4. Rationale: the window split, parallel prodrome timelines, and counter-example framing are structural changes to report organization; Wave 4's composite scores slot into an established structure more cleanly than retrofitting structural changes onto a composite-first report. The Wave 3 data-accumulation gate (≥7 days) provides the natural window to land TICK-023/024/025 before Wave 4 opens.
 
 ## What this plan does NOT change
 
