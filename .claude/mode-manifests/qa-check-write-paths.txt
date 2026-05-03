@@ -7,5 +7,8 @@
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/qa-watcher-seen.json
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/active-mode
 /Users/cotopaxilyon/WebstormProjects/Isobar/.claude/diff-scanner-url-allowlist.txt
+/tmp/*.patch
 /Users/cotopaxilyon/WebstormProjects/Isobar/index.html
 /Users/cotopaxilyon/WebstormProjects/Isobar/sw.js
+/Users/cotopaxilyon/.claude/projects/-Users-cotopaxilyon-WebstormProjects-Isobar/memory/*.md
+/Users/cotopaxilyon/.claude/projects/-Users-cotopaxilyon-WebstormProjects-Isobar/memory/MEMORY.md
