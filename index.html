@@ -1812,7 +1812,7 @@ async function renderLog() {
         if (e.functionalToday) out.push(`<span class="entry-chip" style="color:${functionalColors[e.functionalToday]||'var(--mid)'}">${functionalLabels[e.functionalToday]||e.functionalToday}</span>`);
         return out;
       })() : []),
-      ...(isEod && e.cogLoad && ['thinkingSustained','masking','maskingHeavy','highSensory','emotionalRegulation','communicationProduction','efLogistics','anticipatory'].some(k => e.cogLoad[k])
+      ...(isEod && e.cogLoad && ['thinkingSustained','masking','maskingHeavy','highSensory','emotionalRegulation'].some(k => e.cogLoad[k])
         ? [`<span class="entry-chip" style="color:var(--mid)">cog-load</span>`] : []),
       ...(isEod && e.socialLoad && ['advocacy','difficultInteraction','groupSetting','responsiveAvailability'].some(k => e.socialLoad[k])
         ? [`<span class="entry-chip" style="color:var(--mid)">social-load</span>`] : []),
@@ -2254,7 +2254,7 @@ async function exportReport() {
       }
       if (e.functionalToday) r += `  Today overall: ${funcLabels[e.functionalToday]||e.functionalToday}\n`;
       if (e.cogLoad) {
-        const cogMap = [['thinkingSustained','2+ h hard thinking'],['masking','masking 1–2h'],['maskingHeavy','heavy masking'],['highSensory','4+ h high-sensory'],['emotionalRegulation','held composure 30+ min'],['communicationProduction','wrote/rehearsed avoided message'],['efLogistics','1+ h admin/logistics'],['anticipatory','background logistics 3+ threads']];
+        const cogMap = [['thinkingSustained','2+ h hard thinking'],['masking','masking 1–2h'],['maskingHeavy','heavy masking'],['highSensory','4+ h high-sensory'],['emotionalRegulation','held composure 30+ min']];
         const active = cogMap.filter(([k])=>e.cogLoad[k]).map(([,s])=>s);
         if (active.length) r += `  Cognitive load: ${active.join(', ')}\n`;
       }
@@ -2401,7 +2401,7 @@ function startEvening() {
     trajectoryShiftTime: null,
     functionalToday: null,
     eveningNotes: '',
-    cogLoad: { thinkingSustained: false, masking: false, maskingHeavy: false, highSensory: false, emotionalRegulation: false, communicationProduction: false, efLogistics: false, anticipatory: false },
+    cogLoad: { thinkingSustained: false, masking: false, maskingHeavy: false, highSensory: false, emotionalRegulation: false },
     socialLoad: { advocacy: false, difficultInteraction: false, groupSetting: false, responsiveAvailability: false, postHocProcessing: false, newContext: false, obligationKept: false },
     emoLoad: { conflict: false, significantNews: false, dreadLoop: false, witnessedDistress: false, flashback: false },
   };

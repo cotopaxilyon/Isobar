@@ -1,7 +1,7 @@
 ---
 id: TICK-038
 title: EOD cognitive load — add 3 missing extended items to form
-status: pending
+status: closed
 priority: normal
 wave: 2
 created: 2026-05-01
@@ -50,4 +50,4 @@ TICK-030 (ISO-73) shipped only the 5 core cognitive-load items in the EOD form. 
 
 ## Ship Notes
 
-_(pending)_
+Closed 2026-05-03. The 3 extended items were intentionally removed from the form during TICK-030 implementation — too noisy for regular use. Orphaned references (`eodData` initializer, `cogMap`, log chip key list) removed from `index.html`. No data migration needed; historical records have these as `false`.
