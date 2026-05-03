@@ -3264,9 +3264,130 @@ async function dismissStripPrompt(ivKey) {
   if (el) { el.style.display = 'none'; el.innerHTML = ''; }
 }
 
+// Known ground locations for episodes where weather was never fetched.
+// Keyed by entryDate (YYYY-MM-DD). lat/lon are the most clinically relevant
+// location for that episode (where the environmental exposure occurred).
+const BACKFILL_KNOWN_LOCATIONS = {
+  // 2026-04-19: Cold wind exposure at KI Sawyer Airport (Gwinn/Marquette area) before
+  //             boarding. Flew to Schoolcraft County Airport (bathroom stop, no exposure),
+  //             then toward Mackinac Bridge, then south to Bellaire.
+  //             KI Sawyer is the trigger location.
+  '2026-04-19': { lat: 46.36, lon: -87.39 },
+};
+
+async function backfillMissingWeather() {
+  const entries = await DB.allEntries();
+
+  // Pass 1: episodes with a weather object but missing tempMaxDrop5h
+  const toFix = entries.filter(e => {
+    if (e.type !== 'episode' && e.type !== 'episode_v2') return false;
+    const w = e.weather_at_prodrome || e.weather;
+    return w && w.lat != null && w.lon != null && w.tempMaxDrop5h == null;
+  });
+
+  // Pass 2: episodes with no weather at all but a known location
+  const noWeather = entries.filter(e => {
+    if (e.type !== 'episode' && e.type !== 'episode_v2') return false;
+    if (e.weather_at_prodrome || e.weather) return false;
+    const date = e.entryDate || e.timestamp?.slice(0, 10);
+    return date && BACKFILL_KNOWN_LOCATIONS[date];
+  });
+
+  if (toFix.length === 0 && noWeather.length === 0) return;
+
+  const cache = {};
+
+  async function fetchArchive(lat, lon, epTime) {
+    const startDate = new Date(epTime);
+    startDate.setDate(startDate.getDate() - 3);
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = epTime.toISOString().slice(0, 10);
+    const key = `${startStr}_${endStr}_${lat}_${lon}`;
+    if (!cache[key]) {
+      try {
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startStr}&end_date=${endStr}&hourly=temperature_2m,pressure_msl&temperature_unit=fahrenheit&timezone=UTC`;
+        const r = await fetch(url);
+        cache[key] = await r.json();
+      } catch (err) {
+        console.warn('[backfill] archive fetch failed', key, err);
+        return null;
+      }
+    }
+    return cache[key];
+  }
+
+  function calcMetrics(d, epTime) {
+    if (!d?.hourly?.time) return null;
+    const hours = d.hourly.time.map(t => new Date(t + 'Z'));
+    let idx = 0, minDiff = Infinity;
+    hours.forEach((t, i) => { const diff = Math.abs(t - epTime); if (diff < minDiff) { minDiff = diff; idx = i; } });
+    const tArr = d.hourly.temperature_2m;
+    const pArr = d.hourly.pressure_msl;
+    const scanStart = Math.max(0, idx - 8);
+    let tempMaxDrop5h = 0, tempMaxRise5h = 0;
+    for (let i = scanStart; i <= idx - 5; i++) {
+      if (i + 5 >= tArr.length) break;
+      const delta = tArr[i + 5] - tArr[i];
+      if (-delta > tempMaxDrop5h) tempMaxDrop5h = -delta;
+      if (delta > tempMaxRise5h) tempMaxRise5h = delta;
+    }
+    const peak72Start = Math.max(0, idx - 72);
+    const pressureRecentPeak = Math.max(...pArr.slice(peak72Start, idx + 1));
+    const dwell48Start = Math.max(0, idx - 48);
+    const pressureDwellHours = pArr.slice(dwell48Start, idx + 1).filter(p => p < pressureRecentPeak - 5).length;
+    const trend = Math.round((pArr[idx] - pArr[Math.max(0, idx - 6)]) * 10) / 10;
+    const tempTrend = Math.round(tArr[idx] - tArr[Math.max(0, idx - 6)]);
+    return {
+      temp: Math.round(tArr[idx]),
+      currentTemp: Math.round(tArr[idx]),
+      tempTrend,
+      pressure: Math.round(pArr[idx] * 10) / 10,
+      trend,
+      pressureRecentPeak: Math.round(pressureRecentPeak * 10) / 10,
+      pressureDwellHours,
+      tempMaxDrop5h: Math.round(tempMaxDrop5h * 10) / 10,
+      tempMaxRise5h: Math.round(tempMaxRise5h * 10) / 10,
+    };
+  }
+
+  // Pass 1: patch missing drop/rise (and dwell if absent) on existing weather objects
+  for (const ep of toFix) {
+    const w = ep.weather_at_prodrome || ep.weather;
+    const lat = Math.round(w.lat * 100) / 100;
+    const lon = Math.round(w.lon * 100) / 100;
+    const epTime = new Date(ep.timestamp);
+    const d = await fetchArchive(lat, lon, epTime);
+    const m = calcMetrics(d, epTime);
+    if (!m) continue;
+    if (w.pressureDwellHours == null) { w.pressureDwellHours = m.pressureDwellHours; w.pressureRecentPeak = m.pressureRecentPeak; }
+    w.tempMaxDrop5h = m.tempMaxDrop5h;
+    w.tempMaxRise5h = m.tempMaxRise5h;
+    const key = ep._idbKey || `entry:${new Date(ep.timestamp).getTime()}`;
+    const { _idbKey, ...clean } = ep;
+    await DB.set(key, clean);
+  }
+
+  // Pass 2: create weather_at_prodrome from scratch for known locations
+  for (const ep of noWeather) {
+    const date = ep.entryDate || ep.timestamp?.slice(0, 10);
+    const { lat, lon } = BACKFILL_KNOWN_LOCATIONS[date];
+    const epTime = new Date(ep.timestamp);
+    const d = await fetchArchive(lat, lon, epTime);
+    const m = calcMetrics(d, epTime);
+    if (!m) continue;
+    const wObj = { ...m, lat, lon, precip: 0, fetchedAt: 'retrospective', timestamp: ep.timestamp, captured_retrospectively: true };
+    if (ep.type === 'episode_v2') ep.weather_at_prodrome = wObj;
+    else ep.weather = wObj;
+    const key = ep._idbKey || `entry:${new Date(ep.timestamp).getTime()}`;
+    const { _idbKey, ...clean } = ep;
+    await DB.set(key, clean);
+  }
+}
+
 async function initApp() {
   await migrateMealsToHistory();
   await migrateCheckinSleepHours();
+  backfillMissingWeather();
   fetchWeather();
   updateStats();
   renderMealCard();
