@@ -1,5 +1,5 @@
 ---
-id: TICK-039
+id: TICK-040
 title: Weather exposure comparison — episode-day vs non-episode-day contingency
 status: backlog
 priority: normal
@@ -17,7 +17,7 @@ supersedes: []
 shipped: ""
 ---
 
-# TICK-039: Weather exposure comparison — episode-day vs non-episode-day contingency
+# TICK-040: Weather exposure comparison — episode-day vs non-episode-day contingency
 
 ## Summary
 

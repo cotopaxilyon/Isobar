@@ -1,7 +1,7 @@
 ---
 status: active — sequencing plan for the post-irritability-critical-review queue
 created: 2026-04-17
-last_updated: 2026-05-03 (weather exposure comparison emergent work added; TICK-039 drafted)
+last_updated: 2026-05-03 (weather exposure comparison emergent work added; TICK-040 drafted)
 supersedes: any prior informal ticket ordering since the irritability plan refold
 ---
 
@@ -246,7 +246,7 @@ Not on the original wave plan; emerged from postmortems or bug-hunt sessions.
 - **qa-check workflow hardening** — advisory-verification discipline baked into the skill (2026-04-22) after ISO-68's "pure render issue" framing was relayed without tracing.
 - **Physician report + sleep pickers** (2026-04-28): ISO-91 (24h custom time pickers for prodrome/firstJerk), ISO-92 (sleep bed/wake time pickers), ISO-93 (exportReport restructured into specialist-readable clinical summary). All committed and pushed, QA Pass 2026-04-28. ISO-94 (episode time inputs, same picker treatment) in Backlog. ISO-95 (fix Appendix B bed-time to read `sleepBedTimeCorrected`) committed 2026-04-30.
 - **CBCT report ingested** — `CBCT Report.pdf` on disk; clinical summary docs (`Clinical_Summary_Lyon_20260428.*`, `Medical_Summary_Cotopaxi_Lyon_20260428.*`) drafted 2026-04-28 alongside the physician report work.
-- **Weather exposure comparison** (2026-05-03): `PLAN_weather_exposure_comparison.md` drafted, critically reviewed across 15 issues, and rewritten in place. Replaces the existing ENV section's two episode-side stats (`≥18h` pressure dwell, `≥13°F` temp drop) with a 2×2 day-level contingency (necessary/sufficient framing), per-axis breakdown, episode-level descriptive line, and separate Arizona block. Touches `exportReport` only; new top-level helper `buildWeatherExposureTable` near `environmentalRisk`. No schema changes. TICK-039 / ISO-109 in Backlog. Implementation gated on plan re-read and explicit go-ahead.
+- **Weather exposure comparison** (2026-05-03): `PLAN_weather_exposure_comparison.md` drafted, critically reviewed across 15 issues, and rewritten in place. Replaces the existing ENV section's two episode-side stats (`≥18h` pressure dwell, `≥13°F` temp drop) with a 2×2 day-level contingency (necessary/sufficient framing), per-axis breakdown, episode-level descriptive line, and separate Arizona block. Touches `exportReport` only; new top-level helper `buildWeatherExposureTable` near `environmentalRisk`. No schema changes. TICK-040 / ISO-109 in Backlog. Implementation gated on plan re-read and explicit go-ahead.
 
 None of these blocked or were blocked by a wave in the rollout plan; they're noted here so the Completed-by-date timeline reads honestly.
 
