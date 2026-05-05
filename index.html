@@ -2096,6 +2096,14 @@ async function exportReport() {
   r += `PRODROME SEQUENCE (reproducible in 9/10 episodes)\n`;
   r += `  Fatigue → back pressure → leg energy → left facial tingling\n`;
   r += `  Left facial tingling = final sign; episode onset typically within 8–15 min\n`;
+  r += `\n`;
+  r += `WEATHER COLOR SCALE (Marquette only; used in Environmental Pattern section)\n`;
+  r += `  Green   All three axes below threshold: pressure dwell < 12h AND temp change < 10°F/5h\n`;
+  r += `  Amber   One or more axes at or above amber threshold:\n`;
+  r += `            pressure dwell ≥ 12h  OR  temp drop ≥ 10°F/5h  OR  temp rise ≥ 10°F/5h\n`;
+  r += `  Red     One or more axes at or above red threshold:\n`;
+  r += `            pressure dwell ≥ 24h  OR  temp drop ≥ 14°F/5h  OR  temp rise ≥ 14°F/5h\n`;
+  r += `  amber+  Amber or red (i.e., not green). Term used in the contingency table.\n\n`;
   r += `${'─'.repeat(60)}\n\n`;
 
   // SECTION 3 — PERIOD SUMMARY
