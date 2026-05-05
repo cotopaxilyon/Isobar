@@ -1,11 +1,11 @@
 ---
 id: TICK-040
 title: Weather exposure comparison — episode-day vs non-episode-day contingency
-status: backlog
+status: qa-pass
 priority: normal
 wave: emergent
 created: 2026-05-03
-updated: 2026-05-03
+updated: 2026-05-04
 plan: docs/plans/PLAN_weather_exposure_comparison.md
 test: null
 linear:
@@ -37,33 +37,33 @@ See `docs/plans/PLAN_weather_exposure_comparison.md` § Acceptance criteria for 
 
 ### Helper
 
-- [ ] `buildWeatherExposureTable` lives at top-level near `environmentalRisk` (index.html ~985)
-- [ ] All episode-side weather reads use `(ep.weather_at_prodrome ?? ep.weather)`
-- [ ] Day-level classification uses morning check-in `weather` only (no episode-time or EOD snapshots)
-- [ ] Days without a morning check-in `weather` snapshot drop from both sides of the contingency
-- [ ] Days with multiple morning check-ins are classified by the worst risk-level among them
-- [ ] Arizona days (lat/lon outside the Marquette bounding box) excluded from contingency, per-axis breakdown, and episode-level summary; counted only in the Arizona block
-- [ ] Aborted episodes (`type==='episode_v2' && spasm_count===0 && !prodrome_absent`) count toward "episode-day"
-- [ ] Episode-level descriptive line includes backfilled snapshots; `backfilledCount` reported in footnote
+- [x] `buildWeatherExposureTable` lives at top-level near `environmentalRisk` (index.html ~985)
+- [x] All episode-side weather reads use `(ep.weather_at_prodrome ?? ep.weather)`
+- [x] Day-level classification uses morning check-in `weather` only (no episode-time or EOD snapshots)
+- [x] Days without a morning check-in `weather` snapshot drop from both sides of the contingency
+- [x] Days with multiple morning check-ins are classified by the worst risk-level among them
+- [x] Arizona days (lat/lon outside the Marquette bounding box) excluded from contingency, per-axis breakdown, and episode-level summary; counted only in the Arizona block
+- [x] Aborted episodes (`type==='episode_v2' && spasm_count===0 && !prodrome_absent`) count toward "episode-day"
+- [x] Episode-level descriptive line includes backfilled snapshots; `backfilledCount` reported in footnote
 
 ### Report formatting
 
-- [ ] Existing `≥18h` pressure paragraph and `≥13°F` thermal paragraph deleted; new section subsumes them
-- [ ] Per-component gating fires per the plan's rules (3/5 thresholds split per subsection); below-threshold components print specific "insufficient data: X / Y" lines
-- [ ] Percentages followed by `(n=X — small sample)` inline when relevant n < 10
-- [ ] Necessary/sufficient sentences resolve to "is/is not" based on `c>0` / `b>0`
+- [x] Existing `≥18h` pressure paragraph and `≥13°F` thermal paragraph deleted; new section subsumes them
+- [x] Per-component gating fires per the plan's rules (3/5 thresholds split per subsection); below-threshold components print specific "insufficient data: X / Y" lines
+- [x] Percentages followed by `(n=X — small sample)` inline when relevant n < 10
+- [x] Necessary/sufficient sentences resolve to "is/is not" based on `c>0` / `b>0`
 
 ### Verification (before QA transition)
 
-- [ ] Synthetic fixture (pinned in plan's Verification artifacts §) returns the pinned object (deep-equal)
-- [ ] Live-data hand-count for the implementation week matches `buildWeatherExposureTable` output
+- [x] Synthetic fixture (pinned in plan's Verification artifacts §) returns the pinned object (deep-equal) — verified via Playwright browser_evaluate on WebKit
+- [x] Live-data hand-count for the implementation week matches `buildWeatherExposureTable` output — verified against April 27 export (Python + JS, exact match)
 
 ### Cache / no-regression
 
-- [ ] No new fields written to any check-in, episode, EOD, motor_event, or intervention_event entries
-- [ ] No home stat chip added
-- [ ] SW cache version bumped (report-shape change is a shell behavior change)
-- [ ] Architecture check `grep -n '/Isobar/' sw.js manifest.json index.html` returns empty
+- [x] No new fields written to any check-in, episode, EOD, motor_event, or intervention_event entries
+- [x] No home stat chip added
+- [x] SW cache version bumped to v20 (report-shape change is a shell behavior change)
+- [x] Architecture check `grep -n '/Isobar/' sw.js manifest.json index.html` returns empty
 
 ## Agent Context
 
@@ -96,4 +96,8 @@ See `docs/plans/PLAN_weather_exposure_comparison.md` § Acceptance criteria for 
 
 ## Ship Notes
 
-_(pending)_
+QA Pass 2026-05-04 (ISO-109). 19/19 ACs passed. Synthetic fixture deep-equal verified via Playwright WebKit; live-data hand-count confirmed against April 27 export (Python + JS match).
+
+Advisory ISO-111 opened: `amber+` appears 8× in the new section without an inline definition for clinician audience. Math is correct; label is opaque on first read. Recommended fix: add inline definition or extend the SCALE TRANSLATION LEGEND.
+
+Code uncommitted at QA Pass. Working tree also contains cognition-anchor (TICK-033) changes — those were exercised end-to-end by QA and passed, noted separately; will land under their own ticket.

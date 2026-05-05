@@ -1,7 +1,7 @@
 ---
 status: active — sequencing plan for the post-irritability-critical-review queue
 created: 2026-04-17
-last_updated: 2026-05-03 (weather exposure comparison emergent work added; TICK-040 drafted)
+last_updated: 2026-05-04 (TICK-033/040 QA Pass, uncommitted; ISO-111 advisory open on TICK-040; histamine reaction log added as urgent additive TICK-041/042)
 supersedes: any prior informal ticket ordering since the irritability plan refold
 ---
 
@@ -12,6 +12,20 @@ supersedes: any prior informal ticket ordering since the irritability plan refol
 Coordinate the currently-open planning docs into a single shippable order. Produced after the 16-item critical-review walkthrough of `PLAN_irritability_and_severity_mapping.md` locked a number of structural changes that interact with the morning-check-in and episode-phases plans already in the pipeline.
 
 This doc is the sequencing spec. Individual plans remain the source of truth for WHAT to build; this doc answers WHEN.
+
+---
+
+## Status snapshot — 2026-05-03
+
+Wave 3 is nearly complete. TICK-030/031/032/033 all shipped since the last snapshot:
+
+- **TICK-021 (ISO-55) and TICK-022 (ISO-56)** — confirmed shipped (status: shipped in ticket files; activity + trajectory + functionalToday + notes + export section). These were marked ❌ in the 2026-04-30 snapshot but had already shipped via `cf5c98e` on 2026-04-23.
+- **TICK-030 (ISO-73)** — EOD cognitive load anchor set shipped 2026-04-23 (`1b50c7a`). Follow-up: orphaned cog-load keys cleaned up by ISO-108 on 2026-05-03 (`70627a4`).
+- **TICK-031 (ISO-74) + TICK-032 (ISO-75)** — social and emotional load anchor sets shipped 2026-05-01 (`e155fbf`).
+- **TICK-033 (ISO-76)** — cognition behavioral Y/N anchors (morning + evening paired, 3 items) shipped 2026-05-03. Unblocks the cognition axis (weight 0.15) for the Stage 4 composite.
+- **TICK-035** — intervention schema + home-screen card + opportunistic strip shipped 2026-05-01 (`a7e7d52`); currently ready-for-qa.
+
+**One Wave 3 ticket remaining:** TICK-034 (ISO-77) — EOD symptom-axis behavioral Y/N anchors (fatigue 3 + pain 3 + social/irritability 4). Still pending. This is the last item before Wave 3 is fully done and the Wave 4 composite-engine data-accumulation gate opens.
 
 ---
 
@@ -34,7 +48,7 @@ Five days since this plan was drafted. The shape has held, but the ticket number
 - **Stage 0 (persistence)** — ✅ fully shipped. All four tickets (ISO-39/40/41/42) Done 2026-04-18/19.
 - **Wave 1 (morning foundation)** — ✅ **fully shipped**. All acceptance criteria confirmed in code (2026-04-23 audit). TICK-005 closed as housekeeping 2026-04-22 — scope accreted across ISO-47, ISO-48, ISO-28, ISO-29, ISO-35, ISO-36, ISO-38, ISO-51 between 2026-04-18 and 2026-04-21. Every AC verified at specific `index.html` line numbers in the ticket's ship notes.
 - **Wave 2 (episode foundation)** — ❌ **not started**. `PLAN_episode_phases.md` still specced; `docs/tickets/TICK-006-episode-phases.md` drafted but untouched. Per-wave blocker on Wave 1, which only half-shipped, so the original gate is ambiguous.
-- **Wave 3 (evening check-in)** — 🚧 **in flight, 3 of 5 original tickets done + 5 new anchor tickets in Backlog**. Renumbered from the plan's placeholder "TICK-010" to TICK-018..022; the Item 10 load-anchor work added TICK-030..032 (ISO-73/74/75) and the Item 3+6 symptom-axis behavioral Y/N anchors added TICK-033..034 (ISO-76/77). ISO-52/53/54 (foundation / snapshot / cost block) shipped 2026-04-21 and 2026-04-23. ISO-55/56 (activity+trajectory / notes+export) are Backlog. ISO-73..77 created 2026-04-23.
+- **Wave 3 (evening check-in)** — *(as of 2026-04-22)* 🚧 **in flight, 3 of 5 original tickets done + 5 new anchor tickets in Backlog**. Renumbered from the plan's placeholder "TICK-010" to TICK-018..022; the Item 10 load-anchor work added TICK-030..032 (ISO-73/74/75) and the Item 3+6 symptom-axis behavioral Y/N anchors added TICK-033..034 (ISO-76/77). ISO-52/53/54 shipped 2026-04-21 and 2026-04-23. **See 2026-05-03 snapshot for current state — 9 of 10 done.**
 - **Wave 4 (composite engine + docs)** — ❌ **not started**. TICK-007 and TICK-008 drafted, dependent on Wave 3 accumulating ≥7 days of evening data.
 - **New Wave 5 (Places / Trigger-trap)** — ❌ **not started, but fully drafted**. Eight tickets ISO-57..64 / TICK-023..029 + TEST-028, all Backlog, drafted 2026-04-19 from `PLAN_trigger_trap.md`. This wave did not exist when the rollout plan was first written — it was added after the 2026-04-19 flight-leg postmortem.
 
@@ -72,6 +86,12 @@ Five days since this plan was drafted. The shape has held, but the ticket number
 | 2026-04-21 | Cycle-phase rename + cycle-proxy log chips + EOD foundation + EOD snapshot | ISO-48 (TICK-014), ISO-51, ISO-52 (TICK-018), ISO-53 (TICK-019) |
 | 2026-04-23 | Meal-coherence trio (unplanned — surfaced by 2026-04-22 postmortem) | ISO-67, ISO-68, ISO-69 |
 | 2026-04-23 | EOD cost block — activities / connection / fun / sleep readiness | ISO-54 (TICK-020) |
+| 2026-04-23 | EOD activity + trajectory + functionalToday | ISO-55 (TICK-021) |
+| 2026-04-23 | EOD notes + dedicated log + export section | ISO-56 (TICK-022) |
+| 2026-04-23 | EOD cognitive load anchor set (5 items) | ISO-73 (TICK-030) |
+| 2026-05-01 | EOD social load anchor set (7 items) + emotional load anchor set (5 items) | ISO-74/75 (TICK-031/032) |
+| 2026-05-01 | Intervention schema + home-screen card + opportunistic strip | TICK-035 |
+| 2026-05-03 | Cognition behavioral Y/N anchors — morning + evening paired | ISO-76 (TICK-033) |
 
 ---
 
@@ -134,7 +154,7 @@ Five days since this plan was drafted. The shape has held, but the ticket number
 
 ---
 
-## Wave 3 — Evening check-in (Stage 2 of irritability plan) — 🚧 IN FLIGHT
+## Wave 3 — Evening check-in (Stage 2 of irritability plan) — 🚧 9 of 10 DONE
 
 ### Ticket set (renumbered from placeholder TICK-010-evening-checkin)
 
@@ -143,19 +163,20 @@ Originally drafted as a single "TICK-010-evening-checkin" ticket; actually split
 - ✅ **ISO-52 / TICK-018** — Evening check-in foundation (new entry type, soft-prompt card, empty frame). Shipped 2026-04-21.
 - ✅ **ISO-53 / TICK-019** — EOD snapshot block (communication + irritability + external observation). Shipped 2026-04-21.
 - ✅ **ISO-54 / TICK-020** — EOD cost block (activities / connection / fun / sleep readiness). Shipped 2026-04-23 (commit `dfae136`).
-- ❌ **ISO-55 / TICK-021** — EOD activity + single-shift trajectory + `functionalToday`. Backlog.
-- ❌ **ISO-56 / TICK-022** — EOD notes + dedicated log + export section. Backlog.
-- ❌ **ISO-73 / TICK-030** — EOD cognitive load anchor set (8 items). Backlog.
-- ❌ **ISO-74 / TICK-031** — EOD social load anchor set (7 items). Backlog.
-- ❌ **ISO-75 / TICK-032** — EOD emotional load anchor set (5 items). Backlog.
-- ❌ **ISO-76 / TICK-033** — Cognition behavioral Y/N anchors — morning + evening paired (3 items, cross-form). Backlog. **Required for composite:** cognition axis (weight 0.15) has no inputs until this ships.
-- ❌ **ISO-77 / TICK-034** — EOD symptom-axis behavioral Y/N anchors: fatigue (3) + pain (3) + social/irritability (4). Backlog.
+- ✅ **ISO-55 / TICK-021** — EOD activity + single-shift trajectory + `functionalToday`. Shipped 2026-04-23 (commit `cf5c98e`).
+- ✅ **ISO-56 / TICK-022** — EOD notes + dedicated log + export section. Shipped 2026-04-23 (commit `cf5c98e`).
+- ✅ **ISO-73 / TICK-030** — EOD cognitive load anchor set (5 items). Shipped 2026-04-23 (commit `1b50c7a`). ISO-108 cleaned up orphaned keys 2026-05-03.
+- ✅ **ISO-74 / TICK-031** — EOD social load anchor set (7 items). Shipped 2026-05-01 (commit `e155fbf`).
+- ✅ **ISO-75 / TICK-032** — EOD emotional load anchor set (5 items). Shipped 2026-05-01 (commit `e155fbf`).
+- ✅ **ISO-76 / TICK-033** — Cognition behavioral Y/N anchors — morning + evening paired (3 items, cross-form). Shipped 2026-05-03. Cognition axis (weight 0.15) now has inputs.
+- ❌ **ISO-77 / TICK-034** — EOD symptom-axis behavioral Y/N anchors: fatigue (3) + pain (3) + social/irritability (4). Pending.
 
-**Still owed from `PLAN_irritability_and_severity_mapping.md` Stage 2 and not yet drafted into a ticket:**
-- ~~**Cognitive load anchor set** (8 items)~~ ✅ ticket drafted 2026-04-23 as **TICK-030**.
-- ~~**Social load anchor set** (7 items)~~ ✅ ticket drafted 2026-04-23 as **TICK-031**.
-- ~~**Emotional load anchor set** (5 items)~~ ✅ ticket drafted 2026-04-23 as **TICK-032**.
-- ~~**Symptom-axis behavioral Y/N anchors** per Items 3 + 6~~ ✅ locked 2026-04-23; tickets drafted as **TICK-033** (cognition paired morning+evening) and **TICK-034** (EOD fatigue + pain + social/irritability).
+**Still owed from `PLAN_irritability_and_severity_mapping.md` Stage 2:**
+- ~~**Cognitive load anchor set** (8 items)~~ ✅ shipped 2026-04-23 as **TICK-030** (ISO-73).
+- ~~**Social load anchor set** (7 items)~~ ✅ shipped 2026-05-01 as **TICK-031** (ISO-74).
+- ~~**Emotional load anchor set** (5 items)~~ ✅ shipped 2026-05-01 as **TICK-032** (ISO-75).
+- ~~**Cognition paired Y/N anchors** (morning + evening, 3 items)~~ ✅ shipped 2026-05-03 as **TICK-033** (ISO-76).
+- **Symptom-axis behavioral Y/N anchors** (fatigue 3 + pain 3 + social/irritability 4) — ❌ pending as **TICK-034** (ISO-77). Last remaining Wave 3 item.
 - **Multi-shift trajectory capture** (Item 11): `up_down` selection opens up to 3 shift-timestamp inputs with direction. TICK-021 scopes single-shift only — multi-shift is a follow-up.
 - **Weather re-fetch with interpolation fallback** at shift timestamps (Item 14).
 - **`painEpisodePeak` write-time denormalization** hook on episode save (Item 7). Depends on Wave 2.
@@ -181,7 +202,7 @@ Scope unchanged from original plan. Key items recap:
 - Stage provenance headers — Item 16.
 - PROMIS labeling enforcement — Items 4 + 9.
 
-**Dependency:** Wave 3 must have shipped (all five TICK-018..022) and accumulated ≥7 days of evening data before the composite produces a publishable clinical-export value. UI surface can render raw composite earlier at 4 days.
+**Dependency:** Wave 3 must have fully shipped (TICK-018..022 ✅ done; TICK-030/031/032/033 ✅ done; TICK-034 ❌ still pending) and accumulated ≥7 days of evening data before the composite produces a publishable clinical-export value. UI surface can render raw composite earlier at 4 days.
 
 **Draft location:** `docs/tickets/TICK-007-export-consolidation.md`.
 
@@ -217,6 +238,25 @@ Scope unchanged. Can ship in parallel with TICK-007.
 
 ---
 
+## Histamine / MCAS reaction log — urgent additive (2026-05-03)
+
+Not a numbered wave. Two pieces, driven by `PLAN_histamine_reaction_log.md`. Origin: a live mast-cell event (kiwi + yogurt + almonds) on 2026-05-03 produced oral itching, stomach cramps, and a dissociative "high" — with no place in the app to record it. Research session confirmed the app has zero food-content logging and no acute reaction surface.
+
+| Ticket | Timing | Reasoning |
+|---|---|---|
+| **TICK-041** — `acute_reaction` schema + home-screen "Reaction / flare" card + form view + 3 episode exposure chips | Ship now, parallel with anything | Zero dependencies. Additive: new entry type, new home-screen card, new form view. Doesn't touch `startEpisode()` or `exportReport()`. Every delayed day loses capture of mast-cell events that are diagnostically distinct from motor episodes. |
+| **TICK-042** — physician report "Acute Reactions" section + food-group co-occurrence table | After Wave 5 export trio (TICK-023/024/025) | Touches `exportReport()`. Same ordering logic as TICK-037 — lands more cleanly once the window-split + parallel-prodrome + counter-example structure is in place. Can ship in parallel with TICK-037 (different report sections). |
+
+**Coordination dependencies:**
+- TICK-041: no dependencies, no blockers.
+- TICK-042: after TICK-025; parallel with TICK-037.
+
+**Plan reference:** `docs/plans/PLAN_histamine_reaction_log.md` — fully specced, all open questions resolved, plan-review checklist clean (29/29 items).
+
+**Supersedes:** `PLAN_trigger_surface_expansion.md` Tier 2 item 12 (`meal.highHistamine: bool`). That placeholder is replaced by TICK-041's richer food-group approach.
+
+---
+
 ## Intervention log — urgent additive (2026-04-30)
 
 Not a numbered wave. Three pieces with three different timings, driven by `PLAN_intervention_log.md`. Origin: the patient's reproducible THC abort observation; structured capture of treatment response across all intervention categories (cannabinoid, MCAS rescue, heat, hydration, etc.).
@@ -246,7 +286,8 @@ Not on the original wave plan; emerged from postmortems or bug-hunt sessions.
 - **qa-check workflow hardening** — advisory-verification discipline baked into the skill (2026-04-22) after ISO-68's "pure render issue" framing was relayed without tracing.
 - **Physician report + sleep pickers** (2026-04-28): ISO-91 (24h custom time pickers for prodrome/firstJerk), ISO-92 (sleep bed/wake time pickers), ISO-93 (exportReport restructured into specialist-readable clinical summary). All committed and pushed, QA Pass 2026-04-28. ISO-94 (episode time inputs, same picker treatment) in Backlog. ISO-95 (fix Appendix B bed-time to read `sleepBedTimeCorrected`) committed 2026-04-30.
 - **CBCT report ingested** — `CBCT Report.pdf` on disk; clinical summary docs (`Clinical_Summary_Lyon_20260428.*`, `Medical_Summary_Cotopaxi_Lyon_20260428.*`) drafted 2026-04-28 alongside the physician report work.
-- **Weather exposure comparison** (2026-05-03): `PLAN_weather_exposure_comparison.md` drafted, critically reviewed across 15 issues, and rewritten in place. Replaces the existing ENV section's two episode-side stats (`≥18h` pressure dwell, `≥13°F` temp drop) with a 2×2 day-level contingency (necessary/sufficient framing), per-axis breakdown, episode-level descriptive line, and separate Arizona block. Touches `exportReport` only; new top-level helper `buildWeatherExposureTable` near `environmentalRisk`. No schema changes. TICK-040 / ISO-109 in Backlog. Implementation gated on plan re-read and explicit go-ahead.
+- **Orphaned cog-load key cleanup** (2026-05-03): ISO-108 removed four orphaned `cogLoad.*` keys that TICK-030 had introduced with a different data shape than the final implementation (`1b50c7a`). Keys removed from the data model, export map, and log chip. No schema migration needed (keys were never populated).
+- **Weather exposure comparison** (2026-05-03): `PLAN_weather_exposure_comparison.md` drafted, critically reviewed across 15 issues, and rewritten in place. Replaces the existing ENV section's two episode-side stats (`≥18h` pressure dwell, `≥13°F` temp drop) with a 2×2 day-level contingency (necessary/sufficient framing), per-axis breakdown, episode-level descriptive line, and separate Arizona block. Touches `exportReport` only; new top-level helper `buildWeatherExposureTable` near `environmentalRisk`. No schema changes. TICK-040 / ISO-109: implemented 2026-05-03, **QA Pass 2026-05-04** (19/19 ACs). Uncommitted. Advisory: ISO-111 (`amber+` label needs inline definition for clinician audience — math correct, label opaque on first read).
 
 None of these blocked or were blocked by a wave in the rollout plan; they're noted here so the Completed-by-date timeline reads honestly.
 
@@ -279,12 +320,17 @@ Wave 1: TICK-005 ✅ DONE (all ACs shipped piecemeal, verified 2026-04-23)
 Wave 2: TICK-006 (episode phases) ❌ NOT STARTED — drafted, not in flight
   │
   ▼
-Wave 3: TICK-018..022 (evening check-in) 🚧 3 of 5 DONE
+Wave 3: TICK-018..034 (evening check-in + load anchors + cog anchors) 🚧 9 of 10 DONE
   • TICK-018 ✅ ISO-52
   • TICK-019 ✅ ISO-53
-  • TICK-020 ✅ ISO-54 (cost block — shipped 2026-04-23)
-  • TICK-021 ❌ ISO-55 Backlog (activity + single-shift trajectory)
-  • TICK-022 ❌ ISO-56 Backlog (notes + export)
+  • TICK-020 ✅ ISO-54 (cost block — 2026-04-23)
+  • TICK-021 ✅ ISO-55 (activity + trajectory — 2026-04-23)
+  • TICK-022 ✅ ISO-56 (notes + export — 2026-04-23)
+  • TICK-030 ✅ ISO-73 (cog load — 2026-04-23)
+  • TICK-031 ✅ ISO-74 (social load — 2026-05-01)
+  • TICK-032 ✅ ISO-75 (emo load — 2026-05-01)
+  • TICK-033 ✅ ISO-76 (cognition paired anchors — 2026-05-03)
+  • TICK-034 ❌ ISO-77 (fatigue + pain + soc/irrit anchors — pending)
   ├───────────────┐
   ▼               ▼
 Wave 4:      Wave 4:
@@ -299,14 +345,21 @@ Post-launch analytics (PROMIS, PEM, variance, axis consolidation)
 
 Wave 5 export batch (TICK-023→024→025) — ships before Wave 4
   → TICK-037 (intervention export — after 025, before Wave 4)
+  → TICK-042 (histamine report section — after 025, parallel with TICK-037)
   → Wave 4 (composite engine — builds on established export structure)
   → Wave 5 remainder: TICK-026 schema → TICK-027 ping → TICK-028 Places view (TEST-028) → TICK-029 export integration
 
 ─── Urgent additive (not a wave) — 2026-04-30 ───
 
-TICK-035 (intervention schema + home logging + strip) — ship now, no deps
+TICK-035 (intervention schema + home logging + strip) — ship now, no deps ✅ DONE
 TICK-036 (episode wrap-up intervention review) — before Wave 2
 TICK-037 (log view cards + export timeline) — after Wave 5 TICK-025
+
+─── Urgent additive (not a wave) — 2026-05-03 ───
+
+TICK-041 (histamine schema + home card + form + episode chips) — ship now, no deps
+TICK-042 (histamine report section) — after Wave 5 TICK-025, parallel with TICK-037
+TICK-040 (weather exposure comparison — report section only) — ship now, no deps ✅ QA Pass, uncommitted
 ```
 
 ## Open decisions still owed by the user

@@ -1,7 +1,7 @@
 ---
 id: TICK-032
 title: EOD emotional load anchor set — 5 items, 4 core + 1 extended, weighted
-status: pending
+status: shipped
 priority: high
 wave: 2
 created: 2026-04-23
@@ -30,7 +30,7 @@ Adds the 5-item emotional-load anchor section to the EOD form per plan §Item 10
     2. `emoLoadSignificantNews` — *"Significant news or awaited outcome"* / *"Medical result, test result, financial/legal outcome, or other real-stakes news received today"* (weight 3)
     3. `emoLoadDreadLoop` — *"Dread / anxiety loop ≥1h"* / *"Ran worry, catastrophizing, or avoidance loops about a specific concrete thing for a meaningful stretch today — observable as checking, rehearsing, avoidance behaviors"* (weight 3)
     4. `emoLoadWitnessedDistress` — *"Witnessed distress"* / *"Someone you care about was having a hard time today and you were present to it (vicarious affect load)"* (weight 2)
-  - **Extended (under "Additional" subheading — single item):**
+  - **Extended:**
     5. `emoLoadFlashback` — *"Emotional flashback"* / *"A place, smell, song, or mention pulled you back into a past difficult experience today"* (weight 2)
 - [ ] Section sits directly below the social load section (TICK-031) under the heading "Emotional load today"
 - [ ] Row interaction identical to TICK-030 / TICK-031: single-tap toggle, tinted when active, ≥44px tap target
@@ -57,7 +57,7 @@ Adds the 5-item emotional-load anchor section to the EOD form per plan §Item 10
 - **Cuts from earlier drafts (plan §Item 10 emotional):** "held back an emotional reaction" (covered by cognitive #4 emotional regulation composure), "felt overwhelmed today" (introspective), "had to regulate a reaction in public" (subset of cognitive emotional regulation).
 - **LOC estimate:** ~100-130 LOC, smallest of the three load-set tickets.
 - **Test sequence (user, during QA):**
-  1. Open EOD form — "Emotional load today" section below social load; 4 core items then "Additional" subheading with 1 item.
+  1. Open EOD form — "Emotional load today" section below social load; all 5 items in a single flat group (no "Additional" subheading).
   2. Tap each — toggle works. Confirm tap target is comfortable on a low-capacity day.
   3. Fire `emoLoadConflict` AND `socialLoadDifficultInteraction` on the same save — both record true; export shows entries in both "Social load" and "Emotional load" lines. Confirm this feels right (same event, two axes, not a duplicate).
   4. Fire only `emoLoadFlashback` (extended) — per AC, summary chip should NOT fire (gate is "any core"); export line lists `[flashback]`. **Verify this matches AC.**

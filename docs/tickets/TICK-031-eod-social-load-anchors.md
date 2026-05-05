@@ -1,7 +1,7 @@
 ---
 id: TICK-031
 title: EOD social load anchor set — 7 items, 4 core + 3 extended, weighted
-status: pending
+status: shipped
 priority: high
 wave: 2
 created: 2026-04-23
@@ -30,11 +30,11 @@ Adds the 7-item social-load anchor section to the EOD form per plan §Item 10 (l
     2. `socialLoadDifficultInteraction` — *"Difficult interpersonal interaction"* / *"Conflict, holding a limit, receiving directed frustration, navigating someone's hard feelings toward you"* (weight 3)
     3. `socialLoadGroupSetting` — *"Group setting ≥3 people ≥1h"* / *"Tracked multiple conversation threads simultaneously"* (weight 2)
     4. `socialLoadResponsiveAvailability` — *"Sustained responsive availability"* / *"Were 'on' for someone else's needs — partner, family, dependent — for a meaningful stretch today"* (weight 2)
-  - **Extended (under "Additional" subheading):**
+  - **Extended:**
     5. `socialLoadPostHocProcessing` — *"Post-hoc social processing"* / *"Spent meaningful time after an interaction decoding it — 'what did they mean,' 'did I handle that right'"* (weight 2)
     6. `socialLoadNewContext` — *"New social context"* / *"Met a new person, or was in an unfamiliar social setting (novelty cost beyond masking baseline)"* (weight 1)
     7. `socialLoadObligationKept` — *"Scheduled social obligation kept"* / *"Attended a commitment you'd been dreading or low-capacity for"* (weight 2)
-- [ ] Section sits directly below the cognitive load section (TICK-030) under the heading "Social load today"; "Additional" subheading separates core (items 1-4) from extended (items 5-7)
+- [ ] Section sits directly below the cognitive load section (TICK-030) under the heading "Social load today"; all 7 items render in a single flat group with no "Additional" subheading
 - [ ] Row interaction matches TICK-030: single-tap toggle, tinted background when active, ≥44px tap target, no coupling between rows (each fires independently)
 - [ ] `eodData` initializer adds `socialLoad: { advocacy: false, difficultInteraction: false, groupSetting: false, responsiveAvailability: false, postHocProcessing: false, newContext: false, obligationKept: false }`. Optional; partial logging never blocks save
 - [ ] Log card emits a single summary chip *"social-load"* colored `var(--mid)` when any core item fires. Omit when all 7 are false. Same gate pattern as TICK-030
@@ -58,7 +58,7 @@ Adds the 7-item social-load anchor section to the EOD form per plan §Item 10 (l
 - **Cuts from earlier drafts (plan §Item 10):** "texted with someone difficult" (too frequent), "made a phone call" (covered by cognitive EF+logistics or advocacy #1), "felt lonely today" (introspective), "disappointed in someone" (no observable anchor). All rationale preserved in plan.
 - **LOC estimate:** ~130-170 LOC, less than TICK-030 because the `.load-anchor` pattern is already defined.
 - **Test sequence (user, during QA):**
-  1. Open EOD form — "Social load today" section below cognitive load section; 4 core items, then "Additional" subheading, then 3 extended items.
+  1. Open EOD form — "Social load today" section below cognitive load section; all 7 items in a single flat group (no "Additional" subheading).
   2. Tap each item — toggle works independently.
   3. Tap #1 (Advocacy) and #2 (Difficult interaction) — both fire; save — log chip "social-load" appears; export shows both short keys comma-separated.
   4. Save with only extended (#5-#7) on, no core — per AC, summary chip should NOT fire; export still lists the extended keys. **Verify this matches AC — adjust if user wants chip on extended-only days.**

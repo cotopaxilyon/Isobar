@@ -254,8 +254,79 @@ Pinned at implementation time, before QA. Should cover at minimum:
 - 1 aborted episode (proves it counts as episode-day)
 - 1 backfilled episode snapshot (proves it counts in episode-level summary, contributes to `backfilledCount`)
 
-Fixture array literal + expected return object pasted here at implementation.
+**Fixture array literal** (paste into browser console alongside `buildWeatherExposureTable`):
+
+```js
+const fixture = [
+  // Day 1: Marquette amber+, episode → cell a
+  { type: 'checkin',    entryDate: '2026-01-01', weather: { lat: 46.54, lon: -87.4, pressureDwellHours: 15, tempMaxDrop5h: 5,  tempMaxRise5h: 3 } },
+  { type: 'episode_v2', entryDate: '2026-01-01', spasm_count: 2, prodrome_absent: false, weather_at_prodrome: { pressureDwellHours: 15, tempMaxDrop5h: 5 } },
+
+  // Day 2: Marquette green, episode → cell c ("necessary?" path)
+  { type: 'checkin',    entryDate: '2026-01-02', weather: { lat: 46.54, lon: -87.4, pressureDwellHours: 3, tempMaxDrop5h: 2, tempMaxRise5h: 1 } },
+  { type: 'episode_v2', entryDate: '2026-01-02', spasm_count: 1, prodrome_absent: false, weather_at_prodrome: { pressureDwellHours: 3, tempMaxDrop5h: 2 } },
+
+  // Day 3: Marquette amber+, no episode → cell b ("sufficient?" path)
+  { type: 'checkin',    entryDate: '2026-01-03', weather: { lat: 46.54, lon: -87.4, pressureDwellHours: 14, tempMaxDrop5h: 3, tempMaxRise5h: 2 } },
+
+  // Day 4: Marquette green, no episode → cell d
+  { type: 'checkin',    entryDate: '2026-01-04', weather: { lat: 46.54, lon: -87.4, pressureDwellHours: 2, tempMaxDrop5h: 1, tempMaxRise5h: 0 } },
+
+  // Day 5: no morning check-in weather, episode present → drops from both sides entirely
+  { type: 'episode_v2', entryDate: '2026-01-05', spasm_count: 3, prodrome_absent: false, weather_at_prodrome: null, weather: null },
+
+  // Day 6: Arizona check-in, episode → goes to arizona block only
+  { type: 'checkin',    entryDate: '2026-01-06', weather: { lat: 32.22, lon: -110.97, pressureDwellHours: 0, tempMaxDrop5h: 1, tempMaxRise5h: 1 } },
+  { type: 'episode_v2', entryDate: '2026-01-06', spasm_count: 1, prodrome_absent: false, weather_at_prodrome: { pressureDwellHours: 0 } },
+
+  // Day 7: Marquette green, aborted episode → cell c (aborted counts as episode-day)
+  { type: 'checkin',    entryDate: '2026-01-07', weather: { lat: 46.54, lon: -87.4, pressureDwellHours: 5, tempMaxDrop5h: 2, tempMaxRise5h: 1 } },
+  { type: 'episode_v2', entryDate: '2026-01-07', spasm_count: 0, prodrome_absent: false, weather_at_prodrome: { pressureDwellHours: 5, tempMaxDrop5h: 2 } },
+
+  // Day 8: no morning check-in, backfilled episode snapshot → drops from contingency, counts in episode-level
+  { type: 'episode_v2', entryDate: '2026-01-08', spasm_count: 2, prodrome_absent: false, weather_at_prodrome: { pressureDwellHours: 10, tempMaxDrop5h: 3, captured_retrospectively: true, fetchedAt: 'retrospective' } },
+];
+```
+
+**Expected return object** (deep-equal against `buildWeatherExposureTable(fixture)`):
+
+```js
+{
+  contingency: { a: 1, b: 1, c: 2, d: 1, episodeDays: 3, nonEpisodeDays: 2, amberDays: 2, greenDays: 3, totalDays: 5 },
+  axes: {
+    dwell: { episodeDays: 3, nonEpisodeDays: 2, episodeDaysAmber: 1, nonEpisodeDaysAmber: 1 },
+    drop:  { episodeDays: 3, nonEpisodeDays: 2, episodeDaysAmber: 0, nonEpisodeDaysAmber: 0 },
+    rise:  { episodeDays: 3, nonEpisodeDays: 2, episodeDaysAmber: 0, nonEpisodeDaysAmber: 0 },
+  },
+  episodeLevel: { totalEpisodes: 5, episodesWithWeather: 4, episodesAmber: 1, episodesRed: 0, backfilledCount: 1, abortedCount: 1 },
+  arizona: { observedDays: 1, episodeDays: 1, daysAmber: 0, daysRed: 0, episodes: 1 },
+}
+```
+
+**Trace notes:**
+- Day 5 episode has no weather snapshot → excluded from `epsWithWx` → `episodesWithWeather` = 4 (days 1, 2, 7, 8)
+- Day 6 episode lands in `arizonaDates` → excluded from `marqEps` → `totalEpisodes` = 5 (days 1, 2, 5, 7, 8)
+- Day 1 episode weather: dwell=15 ≥ 12 → amber → `episodesAmber` = 1; dwell=15 < 24 → not red → `episodesRed` = 0
+- Day 7 episode: `spasm_count=0, !prodrome_absent` → `isAborted` → `abortedCount` = 1
+- Day 8 episode: `captured_retrospectively=true` → `backfilledCount` = 1
+- Arizona day 6: dwell=0 < 12 → green → `daysAmber` = 0
+- `nonEpisodeDays = 2` (days 3 and 4) → contingency gate `nonEpisodeDays >= 5` is NOT met → formatting output shows "Insufficient days" line (correct behavior for this small fixture)
+
+**To verify in browser console:**
+
+```js
+// After app loads, paste fixture above, then:
+const result = buildWeatherExposureTable(fixture);
+console.log(JSON.stringify(result, null, 2));
+// Manually diff against expected object above
+```
 
 ### Live-data hand-count (AC 13)
 
-One week (~7 days) from current production DB, picked at implementation time. Hand-count: episode-days, non-episode-days, amber/green per day, axis breakdowns. Pin expected counts here. Mismatch blocks ship.
+To be completed after deployment. Open the app, run:
+```js
+const entries = await DB.allEntries();
+const result = buildWeatherExposureTable(entries);
+console.log(JSON.stringify(result, null, 2));
+```
+Then hand-count one week of data from the current DB (episode-days, non-episode-days, amber/green per day) and verify the function's output matches. Mismatch blocks QA transition.
