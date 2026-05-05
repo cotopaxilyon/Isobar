@@ -991,6 +991,90 @@ function environmentalRisk(w) {
   return { dwell, drop, rise, overall: worst };
 }
 
+const ARIZONA_BOUNDING_BOX = { latMin: 31.0, latMax: 37.5, lonMin: -115.0, lonMax: -108.0 };
+
+function buildWeatherExposureTable(entries) {
+  const entryDate = e => e.entryDate || (e.timestamp || '').slice(0, 10);
+  const riskRank = { green: 0, amber: 1, red: 2 };
+
+  const eps = entries.filter(e => e.type === 'episode_v2' || e.type === 'episode');
+  const cis = entries.filter(e => e.type === 'checkin');
+
+  const cisByDate = {};
+  cis.forEach(ci => { const d = entryDate(ci); if (!cisByDate[d]) cisByDate[d] = []; cisByDate[d].push(ci); });
+  const epsByDate = {};
+  eps.forEach(ep => { const d = entryDate(ep); if (!epsByDate[d]) epsByDate[d] = []; epsByDate[d].push(ep); });
+
+  const isAborted = ep => ep.type === 'episode_v2' && (ep.spasm_count || 0) === 0 && !ep.prodrome_absent;
+  const inAZ = (lat, lon) =>
+    lat >= ARIZONA_BOUNDING_BOX.latMin && lat <= ARIZONA_BOUNDING_BOX.latMax &&
+    lon >= ARIZONA_BOUNDING_BOX.lonMin && lon <= ARIZONA_BOUNDING_BOX.lonMax;
+
+  const ct = { a: 0, b: 0, c: 0, d: 0 };
+  const axes = {
+    dwell: { episodeDays: 0, nonEpisodeDays: 0, episodeDaysAmber: 0, nonEpisodeDaysAmber: 0 },
+    drop:  { episodeDays: 0, nonEpisodeDays: 0, episodeDaysAmber: 0, nonEpisodeDaysAmber: 0 },
+    rise:  { episodeDays: 0, nonEpisodeDays: 0, episodeDaysAmber: 0, nonEpisodeDaysAmber: 0 },
+  };
+  const azBlock = { observedDays: 0, episodeDays: 0, daysAmber: 0, daysRed: 0, episodes: 0 };
+  let hasAZ = false;
+  const arizonaDates = new Set();
+
+  const allDates = [...new Set([...Object.keys(cisByDate), ...Object.keys(epsByDate)])].sort();
+  for (const date of allDates) {
+    const weatherCIs = (cisByDate[date] || []).filter(ci => ci.weather && ci.weather.pressureDwellHours != null);
+    if (!weatherCIs.length) continue;
+
+    const { lat, lon } = weatherCIs[0].weather;
+    const isAZDay = lat != null && lon != null && inAZ(lat, lon);
+    if (isAZDay) arizonaDates.add(date);
+
+    const dayEps = epsByDate[date] || [];
+    const isEpDay = dayEps.length > 0;
+    const risks = weatherCIs.map(ci => environmentalRisk(ci.weather));
+    const worstOverall = risks.reduce((acc, r) => riskRank[r.overall.level] > riskRank[acc.overall.level] ? r : acc);
+
+    if (isAZDay) {
+      hasAZ = true;
+      azBlock.observedDays++;
+      if (isEpDay) azBlock.episodeDays++;
+      if (worstOverall.overall.level !== 'green') azBlock.daysAmber++;
+      if (worstOverall.overall.level === 'red') azBlock.daysRed++;
+      azBlock.episodes += dayEps.length;
+      continue;
+    }
+
+    const isAmber = worstOverall.overall.level !== 'green';
+    if (isAmber) { isEpDay ? ct.a++ : ct.b++; } else { isEpDay ? ct.c++ : ct.d++; }
+
+    for (const axis of ['dwell', 'drop', 'rise']) {
+      const worstAxisLevel = risks.reduce((wl, r) => riskRank[r[axis].level] > riskRank[wl] ? r[axis].level : wl, 'green');
+      const axAmber = worstAxisLevel !== 'green';
+      if (isEpDay) { axes[axis].episodeDays++; if (axAmber) axes[axis].episodeDaysAmber++; }
+      else         { axes[axis].nonEpisodeDays++; if (axAmber) axes[axis].nonEpisodeDaysAmber++; }
+    }
+  }
+
+  const marqEps = eps.filter(ep => !arizonaDates.has(entryDate(ep)));
+  const epWx = ep => ep.weather_at_prodrome ?? ep.weather;
+  const epsWithWx = marqEps.filter(ep => { const w = epWx(ep); return w && w.pressureDwellHours != null; });
+  const backfilledCount = epsWithWx.filter(ep => { const w = epWx(ep); return w.captured_retrospectively || w.fetchedAt === 'retrospective'; }).length;
+
+  return {
+    contingency: { ...ct, episodeDays: ct.a + ct.c, nonEpisodeDays: ct.b + ct.d, amberDays: ct.a + ct.b, greenDays: ct.c + ct.d, totalDays: ct.a + ct.b + ct.c + ct.d },
+    axes,
+    episodeLevel: {
+      totalEpisodes: marqEps.length,
+      episodesWithWeather: epsWithWx.length,
+      episodesAmber: epsWithWx.filter(ep => environmentalRisk(epWx(ep)).overall.level !== 'green').length,
+      episodesRed:   epsWithWx.filter(ep => environmentalRisk(epWx(ep)).overall.level === 'red').length,
+      backfilledCount,
+      abortedCount: marqEps.filter(isAborted).length,
+    },
+    arizona: hasAZ ? azBlock : null,
+  };
+}
+
 function renderWeather() {
   const w = currentWeather;
   if (!w) return;
@@ -1457,6 +1541,7 @@ async function startCheckin() {
     cyclePhaseProxy: { breastTender: false, cycleRelatedDay: false, bloating: false, libido: null },
     // Today
     functionalToday: null,
+    cogAnchors: { lostTrack: false, hadToReread: false, couldntFindWord: false },
     notes: '', weather: currentWeather || null,
   };
   ciStep = 0;
@@ -1479,6 +1564,7 @@ async function clearCheckinDraft() {
     alcohol24h: { units: null, lastDrinkTime: null },
     cyclePhaseProxy: { breastTender: false, cycleRelatedDay: false, bloating: false, libido: null },
     functionalToday: null,
+    cogAnchors: { lostTrack: false, hadToReread: false, couldntFindWord: false },
     notes: '', weather: currentWeather || null,
   };
   ciStep = 0;
@@ -1672,6 +1758,20 @@ function renderCiStep() {
         { value: 'bad', label: 'Bad — I need to rest today', color: 'var(--danger)' },
       ];
       html = `
+        <div class="section" style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+          <span class="label">Cognition this morning</span>
+          <div class="comm-options" style="margin-top:8px">
+            ${[
+              { key:'lostTrack', label:'Lost track mid-sentence this morning' },
+              { key:'hadToReread', label:'Had to re-read to understand this morning' },
+              { key:'couldntFindWord', label:"Couldn't find a word this morning" },
+            ].map(item => {
+              const active = !!(ciData.cogAnchors && ciData.cogAnchors[item.key]);
+              return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+                onclick="ciData.cogAnchors.${item.key}=!ciData.cogAnchors.${item.key};renderCiStep()">${item.label}</button>`;
+            }).join('')}
+          </div>
+        </div>
         <div class="sev-options">
           ${todayOpts.map(o => {
             const sel = ciData.functionalToday === o.value;
@@ -1818,6 +1918,8 @@ async function renderLog() {
         ? [`<span class="entry-chip" style="color:var(--mid)">social-load</span>`] : []),
       ...(isEod && e.emoLoad && ['conflict','significantNews','dreadLoop','witnessedDistress'].some(k => e.emoLoad[k])
         ? [`<span class="entry-chip" style="color:var(--mid)">emo-load</span>`] : []),
+      ...((isCi || isEod) && e.cogAnchors && (e.cogAnchors.lostTrack || e.cogAnchors.hadToReread || e.cogAnchors.couldntFindWord)
+        ? [`<span class="entry-chip" style="color:var(--mid)">cog-symptom</span>`] : []),
       ...(isEp ? (Array.isArray(e.limbsAffected)?e.limbsAffected:[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(Array.isArray(e.bodyPain)?e.bodyPain:[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -1888,6 +1990,7 @@ async function updateStats() {
     document.getElementById('recent-list').innerHTML = '';
   }
 }
+
 
 // ── EXPORT ────────────────────────────────────────────────────
 async function exportReport() {
@@ -2074,22 +2177,57 @@ async function exportReport() {
 
   // SECTION 5 — ENVIRONMENTAL PATTERN
   r += `ENVIRONMENTAL PATTERN\n${'─'.repeat(60)}\n`;
-  const epsWithDwell   = eps.filter(e => (e.weather_at_prodrome?.pressureDwellHours ?? e.weather?.pressureDwellHours) != null);
-  const dwellHigh      = epsWithDwell.filter(e => (e.weather_at_prodrome?.pressureDwellHours ?? e.weather?.pressureDwellHours ?? 0) >= 18);
-  const epsWithDrop    = eps.filter(e => (e.weather_at_prodrome?.tempMaxDrop5h ?? e.weather?.tempMaxDrop5h) != null);
-  const dropHigh       = epsWithDrop.filter(e => (e.weather_at_prodrome?.tempMaxDrop5h ?? e.weather?.tempMaxDrop5h ?? 0) >= 13);
   const epsWithOnset   = eps.filter(e => e.ictal_onset);
   const nocturnal      = epsWithOnset.filter(e => { const h=new Date(e.ictal_onset).getHours(); return h>=21||h<=1; });
   const dayEps         = epsWithOnset.filter(e => { const h=new Date(e.ictal_onset).getHours(); return h>1&&h<21; });
 
-  if (epsWithDwell.length) {
-    r += `Barometric pressure: ${dwellHigh.length}/${epsWithDwell.length} episodes occurred during sustained low-pressure periods (≥18h below threshold).\n\n`;
-  } else {
-    r += `Barometric pressure: Pressure dwell data not available in current export. See session notes and check-in weather readings.\n\n`;
+  {
+    const { contingency: ct, axes, episodeLevel: el, arizona: az } = buildWeatherExposureTable(entries);
+    const smallTag = n => n < 10 ? ` (n=${n} — small sample)` : '';
+    const pct = (num, den) => den === 0 ? '—%' : `${Math.round(100 * num / den)}%`;
+    r += `Weather exposure: episode-days vs. non-episode-days (Marquette only)\n${'─'.repeat(68)}\n`;
+    r += `Day-level analysis based on morning check-in weather snapshots. Days without\na morning check-in are excluded from both sides. Arizona reference period is\nexcluded from this comparison and reported separately below.\n\n`;
+    if (ct.episodeDays >= 3 && ct.nonEpisodeDays >= 5) {
+      const { a, b, c, d, totalDays: N } = ct;
+      r += `                      episode-day    no-episode-day    total\n`;
+      r += `  amber+ weather day  ${String(a).padStart(11)}    ${String(b).padStart(14)}    ${a+b}\n`;
+      r += `  green  weather day  ${String(c).padStart(11)}    ${String(d).padStart(14)}    ${c+d}\n`;
+      r += `  total               ${String(a+c).padStart(11)}    ${String(b+d).padStart(14)}    ${N}\n\n`;
+      r += `  Necessary?  ${c} of ${a+c} episode-days occurred in green weather\n`;
+      r += `              → weather ${c > 0 ? 'is not necessary' : 'is necessary'} for episodes${smallTag(a+c)}\n`;
+      r += `  Sufficient? ${b} of ${a+b} amber-weather days had no episode\n`;
+      r += `              → weather ${b > 0 ? 'is not sufficient' : 'is sufficient'} to produce episodes${smallTag(a+b)}\n`;
+      r += `  Episode rate on amber-weather days: ${pct(a, a+b)} (${a}/${a+b})${smallTag(a+b)}\n`;
+      r += `  Episode rate on green-weather days: ${pct(c, c+d)} (${c}/${c+d})${smallTag(c+d)}\n\n`;
+      r += `Per-axis breakdown (episode-days vs non-episode-days, amber+):\n`;
+      for (const [axis, label] of [['dwell','Pressure dwell ≥12h:'],['drop','Temp drop ≥10°F:'],['rise','Temp rise ≥10°F:']]) {
+        const { episodeDays: eD, nonEpisodeDays: nD, episodeDaysAmber: eA, nonEpisodeDaysAmber: nA } = axes[axis];
+        r += `  ${label.padEnd(22)} ${pct(eA,eD)} (${eA}/${eD})${smallTag(eD)}  vs  ${pct(nA,nD)} (${nA}/${nD})${smallTag(nD)}\n`;
+      }
+      r += '\n';
+    } else {
+      r += `Insufficient days for episode-vs-non-episode comparison (${ct.episodeDays} episode-days, ${ct.nonEpisodeDays} non-episode-days observed).\n\n`;
+    }
+    if (el.episodesWithWeather >= 3) {
+      r += `Episode-level snapshot summary:\n`;
+      r += `  ${el.episodesWithWeather} of ${el.totalEpisodes} episodes had a weather snapshot.\n`;
+      r += `  Episodes in elevated-risk weather (amber+): ${el.episodesAmber} / ${el.episodesWithWeather} (${pct(el.episodesAmber, el.episodesWithWeather)})${smallTag(el.episodesWithWeather)}\n`;
+      r += `  Episodes in high-risk weather (red):        ${el.episodesRed}   / ${el.episodesWithWeather} (${pct(el.episodesRed, el.episodesWithWeather)})${smallTag(el.episodesWithWeather)}\n\n`;
+      r += `  Footnotes:\n`;
+      r += `  - Episode-days include both motor episodes and prodrome-aborted events\n`;
+      r += `    (the body crossed the threshold in both cases). Aborted episodes: ${el.abortedCount}.\n`;
+      r += `  - Episode-level weather counts include archive-filled snapshots for episodes\n`;
+      r += `    where the real-time fetch failed: ${el.backfilledCount}.\n\n`;
+    } else {
+      r += `Insufficient weather snapshots on logged episodes (${el.episodesWithWeather} of ${el.totalEpisodes} episodes have weather data).\n\n`;
+    }
+    if (az) {
+      r += `Arizona reference period (separate)\n${'─'.repeat(35)}\n`;
+      r += `${az.observedDays} days observed; ${az.episodeDays} episode-days; ${az.daysAmber}/${az.observedDays} days had amber+ weather.\n`;
+      r += `${az.episodes} episodes total.\n\n`;
+    }
   }
-  if (epsWithDrop.length) {
-    r += `Thermal exposure: ${dropHigh.length}/${epsWithDrop.length} episodes coincided with a ≥13°F temperature drop within the prior 5 hours.\n\n`;
-  }
+
   if (epsWithOnset.length) {
     r += `Time of onset: ${nocturnal.length}/${epsWithOnset.length} motor episodes began between 9 PM and 2 AM (nocturnal predominance).`;
     if (dayEps.length) r += ` Daytime exceptions: ${dayEps.map(e=>fmtDate(e.ictal_onset)).join(', ')}.`;
@@ -2224,6 +2362,11 @@ async function exportReport() {
     if (e.workCapacity)    r += `  Work capacity: ${e.workCapacity}\n`;
     if (e.cancelledPlans)  r += `  Cancelled plans: ${e.cancelledPlans}\n`;
     if (e.hormonalSymptoms) r += `  Hormonal symptoms: ${e.hormonalSymptoms}\n`;
+    if (e.cogAnchors) {
+      const cogAnchorAMMap = [['lostTrack','lost-track'],['hadToReread','had-to-reread'],['couldntFindWord','couldnt-find-word']];
+      const amActive = cogAnchorAMMap.filter(([k])=>e.cogAnchors[k]).map(([,s])=>s);
+      if (amActive.length) r += `  Cognition (AM): [${amActive.join(', ')}]\n`;
+    }
     if (e.notes)           r += `  Notes: ${e.notes}\n`;
     r += '\n';
   });
@@ -2267,6 +2410,11 @@ async function exportReport() {
         const emoMap = [['conflict','conflict'],['significantNews','significant-news'],['dreadLoop','dread-loop'],['witnessedDistress','witnessed-distress'],['flashback','flashback']];
         const active = emoMap.filter(([k])=>e.emoLoad[k]).map(([,s])=>s);
         if (active.length) r += `  Emotional load: ${active.join(', ')}\n`;
+      }
+      if (e.cogAnchors) {
+        const cogAnchorPMMap = [['lostTrack','lost-track'],['hadToReread','had-to-reread'],['couldntFindWord','couldnt-find-word']];
+        const pmActive = cogAnchorPMMap.filter(([k])=>e.cogAnchors[k]).map(([,s])=>s);
+        if (pmActive.length) r += `  Cognition (PM): [${pmActive.join(', ')}]\n`;
       }
       if (e.eveningNotes?.trim()) r += `  Notes: ${e.eveningNotes.trim()}\n`;
       r += '\n';
@@ -2404,6 +2552,7 @@ function startEvening() {
     cogLoad: { thinkingSustained: false, masking: false, maskingHeavy: false, highSensory: false, emotionalRegulation: false },
     socialLoad: { advocacy: false, difficultInteraction: false, groupSetting: false, responsiveAvailability: false, postHocProcessing: false, newContext: false, obligationKept: false },
     emoLoad: { conflict: false, significantNews: false, dreadLoop: false, witnessedDistress: false, flashback: false },
+    cogAnchors: { lostTrack: false, hadToReread: false, couldntFindWord: false },
   };
   switchView('evening');
   renderEvening();
@@ -2511,6 +2660,20 @@ function renderEvening() {
           const active = !!(eodData.emoLoad && eodData.emoLoad[item.key]);
           return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
             onclick="eodData.emoLoad.${item.key}=!eodData.emoLoad.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Cognition today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'lostTrack', label:'Lost track mid-sentence today' },
+          { key:'hadToReread', label:'Had to re-read to understand today' },
+          { key:'couldntFindWord', label:"Couldn't find a word today" },
+        ].map(item => {
+          const active = !!(eodData.cogAnchors && eodData.cogAnchors[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.cogAnchors.${item.key}=!eodData.cogAnchors.${item.key};renderEvening()">${item.label}</button>`;
         }).join('')}
       </div>
     </div>
