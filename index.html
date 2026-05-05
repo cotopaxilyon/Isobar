@@ -1920,6 +1920,12 @@ async function renderLog() {
         ? [`<span class="entry-chip" style="color:var(--mid)">emo-load</span>`] : []),
       ...((isCi || isEod) && e.cogAnchors && (e.cogAnchors.lostTrack || e.cogAnchors.hadToReread || e.cogAnchors.couldntFindWord)
         ? [`<span class="entry-chip" style="color:var(--mid)">cog-symptom</span>`] : []),
+      ...(isEod && e.fatigueAnchors && ['napped','bedEarly','restedNotNap'].some(k => e.fatigueAnchors[k])
+        ? [`<span class="entry-chip" style="color:var(--mid)">fatigue</span>`] : []),
+      ...(isEod && e.painAnchors && ['avoidedMovement','unscheduledMed','atRest'].some(k => e.painAnchors[k])
+        ? [`<span class="entry-chip" style="color:var(--mid)">pain</span>`] : []),
+      ...(isEod && e.socIrritAnchors && ['snapped','withdrew','shortenedCancelled','sharper'].some(k => e.socIrritAnchors[k])
+        ? [`<span class="entry-chip" style="color:var(--mid)">irrit</span>`] : []),
       ...(isEp ? (Array.isArray(e.limbsAffected)?e.limbsAffected:[]).map(l=>`<span class="entry-chip">${l.replace(/_/g,' ')}</span>`) : []),
       ...(Array.isArray(e.bodyPain)?e.bodyPain:[]).map(p=>`<span class="entry-chip">${p.replace(/_/g,' ')}</span>`),
       ...(() => {
@@ -2424,6 +2430,21 @@ async function exportReport() {
         const pmActive = cogAnchorPMMap.filter(([k])=>e.cogAnchors[k]).map(([,s])=>s);
         if (pmActive.length) r += `  Cognition (PM): [${pmActive.join(', ')}]\n`;
       }
+      if (e.fatigueAnchors) {
+        const fMap = [['napped','napped'],['bedEarly','bed-early'],['restedNotNap','rested-not-nap']];
+        const active = fMap.filter(([k])=>e.fatigueAnchors[k]).map(([,s])=>s);
+        if (active.length) r += `  Fatigue: [${active.join(', ')}]\n`;
+      }
+      if (e.painAnchors) {
+        const pMap = [['avoidedMovement','avoided-movement'],['unscheduledMed','unscheduled-med'],['atRest','at-rest']];
+        const active = pMap.filter(([k])=>e.painAnchors[k]).map(([,s])=>s);
+        if (active.length) r += `  Pain: [${active.join(', ')}]\n`;
+      }
+      if (e.socIrritAnchors) {
+        const sMap = [['snapped','snapped'],['withdrew','withdrew'],['shortenedCancelled','shortened'],['sharper','sharper']];
+        const active = sMap.filter(([k])=>e.socIrritAnchors[k]).map(([,s])=>s);
+        if (active.length) r += `  Social/irrit: [${active.join(', ')}]\n`;
+      }
       if (e.eveningNotes?.trim()) r += `  Notes: ${e.eveningNotes.trim()}\n`;
       r += '\n';
     });
@@ -2561,6 +2582,9 @@ function startEvening() {
     socialLoad: { advocacy: false, difficultInteraction: false, groupSetting: false, responsiveAvailability: false, postHocProcessing: false, newContext: false, obligationKept: false },
     emoLoad: { conflict: false, significantNews: false, dreadLoop: false, witnessedDistress: false, flashback: false },
     cogAnchors: { lostTrack: false, hadToReread: false, couldntFindWord: false },
+    fatigueAnchors: { napped: false, bedEarly: false, restedNotNap: false },
+    painAnchors: { avoidedMovement: false, unscheduledMed: false, atRest: false },
+    socIrritAnchors: { snapped: false, withdrew: false, shortenedCancelled: false, sharper: false },
   };
   switchView('evening');
   renderEvening();
@@ -2682,6 +2706,49 @@ function renderEvening() {
           const active = !!(eodData.cogAnchors && eodData.cogAnchors[item.key]);
           return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
             onclick="eodData.cogAnchors.${item.key}=!eodData.cogAnchors.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Fatigue today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'napped', label:'Napped today' },
+          { key:'bedEarly', label:'Went to bed earlier than planned' },
+          { key:'restedNotNap', label:'Rested / lay down during the day (not a nap)' },
+        ].map(item => {
+          const active = !!(eodData.fatigueAnchors && eodData.fatigueAnchors[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.fatigueAnchors.${item.key}=!eodData.fatigueAnchors.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Pain today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'avoidedMovement', label:'Avoided a specific movement' },
+          { key:'unscheduledMed', label:'Took unscheduled pain medication' },
+          { key:'atRest', label:'Pain at rest (not just during movement)' },
+        ].map(item => {
+          const active = !!(eodData.painAnchors && eodData.painAnchors[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.painAnchors.${item.key}=!eodData.painAnchors.${item.key};renderEvening()">${item.label}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <span class="label">Social / irritability today</span>
+      <div class="comm-options" style="margin-top:8px">
+        ${[
+          { key:'snapped', label:'Snapped at someone today' },
+          { key:'withdrew', label:'Withdrew from planned contact' },
+          { key:'shortenedCancelled', label:'Cancelled or shortened a planned interaction' },
+          { key:'sharper', label:'Responded more sharply than the moment warranted' },
+        ].map(item => {
+          const active = !!(eodData.socIrritAnchors && eodData.socIrritAnchors[item.key]);
+          return `<button class="comm-btn" style="${active?'background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border-color:var(--accent);font-weight:600':''}"
+            onclick="eodData.socIrritAnchors.${item.key}=!eodData.socIrritAnchors.${item.key};renderEvening()">${item.label}</button>`;
         }).join('')}
       </div>
     </div>
